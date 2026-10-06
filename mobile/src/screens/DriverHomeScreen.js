@@ -4,23 +4,11 @@ import {
   ScrollView, Switch, ActivityIndicator,
 } from "react-native";
 import * as Location from "expo-location";
-import * as TaskManager from "expo-task-manager";
 import {
   createVehicle, getMyVehicles, createSubscription, setVehicleAvailability,
   getDriverBookings, updateBookingStatus,
 } from "../api/client";
-import { startSendingLocation } from "../api/tracking";
-
-const BACKGROUND_TASK = "DRIVER_LOCATION_TASK";
-
-TaskManager.defineTask(BACKGROUND_TASK, async ({ data, error }) => {
-  if (error) return;
-  if (data) {
-    const { locations } = data;
-    // Background task just collects locations; the WebSocket timer in
-    // startSendingLocation handles the actual sending from the foreground.
-  }
-});
+import { startBackgroundLocation, stopBackgroundLocation } from "../api/tracking";
 
 const PLANS = [
   { key: "weekly", label: "Weekly — 5,000 RWF / 7 days" },
@@ -97,6 +85,10 @@ export default function DriverHomeScreen({ navigation }) {
       setDriverBookings((prev) =>
         prev.map((b) => (b.id === updated.id ? updated : b))
       );
+      // Stop GPS stream when the trip is completed
+      if (newStatus === "completed" && activeBookingId === bookingId) {
+        handleStopTracking();
+      }
     } catch (e) {
       Alert.alert("Error", e?.response?.data?.detail || "Could not update status.");
     } finally {
@@ -104,20 +96,33 @@ export default function DriverHomeScreen({ navigation }) {
     }
   }
 
+  async function handleStopTracking() {
+    await stopBackgroundLocation();
+    if (stopTrackingRef.current) {
+      stopTrackingRef.current();
+      stopTrackingRef.current = null;
+    }
+    setTracking(false);
+    setActiveBookingId(null);
+  }
+
   async function handleAcceptAndTrack(bookingId) {
     await handleStatusUpdate(bookingId, "accepted");
-    // Start GPS tracking for this booking
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Location needed", "Allow location to track the trip.");
-      return;
+    try {
+      const { backgroundGranted, stopFallback } = await startBackgroundLocation(bookingId);
+      // stopFallback is only set when background permission was denied (foreground-only mode).
+      stopTrackingRef.current = stopFallback || null;
+      setActiveBookingId(bookingId);
+      setTracking(true);
+      if (!backgroundGranted) {
+        Alert.alert(
+          "Foreground tracking only",
+          "Background location was denied. GPS will pause if you close the app."
+        );
+      }
+    } catch (e) {
+      Alert.alert("Location error", e.message);
     }
-    await Location.requestBackgroundPermissionsAsync();
-    if (stopTrackingRef.current) stopTrackingRef.current();
-    const stop = startSendingLocation(bookingId);
-    stopTrackingRef.current = stop;
-    setActiveBookingId(bookingId);
-    setTracking(true);
   }
 
   async function handleRegister() {
@@ -176,33 +181,21 @@ export default function DriverHomeScreen({ navigation }) {
     }
   }
 
-  async function handleStartTrip(bookingId) {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Location needed", "Allow location to track the trip.");
-      return;
-    }
-    await Location.requestBackgroundPermissionsAsync();
-
-    const stop = startSendingLocation(bookingId);
-    stopTrackingRef.current = stop;
-    setTracking(true);
-    Alert.alert("Tracking started", "Your location is being sent to the passenger.");
-  }
-
-  function handleStopTrip() {
-    if (stopTrackingRef.current) {
-      stopTrackingRef.current();
-      stopTrackingRef.current = null;
-    }
-    setTracking(false);
-  }
-
   if (loading) return <ActivityIndicator style={{ flex: 1 }} size="large" />;
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Driver Dashboard</Text>
+
+      {/* ── Active trip banner ── */}
+      {tracking && (
+        <View style={styles.trackingBanner}>
+          <Text style={styles.trackingText}>
+            ● Sharing location — Booking #{activeBookingId}
+          </Text>
+          <Button title="Stop GPS" onPress={handleStopTracking} color="#c00" />
+        </View>
+      )}
 
       {/* ── Incoming bookings ── */}
       <View style={styles.sectionRow}>
@@ -339,48 +332,9 @@ export default function DriverHomeScreen({ navigation }) {
             )}
           </View>
 
-          {/* ── Trip tracking ── */}
-          <Text style={styles.section}>Trip Tracking</Text>
-          <Text style={styles.hint}>
-            When a passenger books you, enter the booking ID to start sending your
-            location to them over the live WebSocket.
-          </Text>
-          {tracking ? (
-            <>
-              <Text style={{ color: "#2a7", marginBottom: 8 }}>
-                ● Tracking active — passenger can see your location
-              </Text>
-              <Button title="Stop Trip" onPress={handleStopTrip} color="#c00" />
-            </>
-          ) : (
-            <StartTripInput onStart={handleStartTrip} />
-          )}
         </>
       )}
     </ScrollView>
-  );
-}
-
-function StartTripInput({ onStart }) {
-  const [bookingId, setBookingId] = useState("");
-  return (
-    <View>
-      <TextInput
-        style={styles.input}
-        placeholder="Booking ID"
-        value={bookingId}
-        onChangeText={setBookingId}
-        keyboardType="numeric"
-      />
-      <Button
-        title="Start Trip Tracking"
-        onPress={() => {
-          if (!bookingId) return;
-          onStart(parseInt(bookingId, 10));
-        }}
-        color="#2a7"
-      />
-    </View>
   );
 }
 
@@ -434,4 +388,16 @@ const styles = StyleSheet.create({
   },
   bookingDetail: { color: "#555", fontSize: 13, marginBottom: 10 },
   bookingActions: { flexDirection: "row", gap: 8 },
+  trackingBanner: {
+    backgroundColor: "#dcfce7",
+    borderWidth: 1,
+    borderColor: "#86efac",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  trackingText: { color: "#166534", fontWeight: "600", fontSize: 14, flex: 1, marginRight: 8 },
 });

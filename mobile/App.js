@@ -1,5 +1,7 @@
 import React from "react";
 import { TouchableOpacity, Text } from "react-native";
+// Register the background location task before any navigation loads.
+import "./src/api/tracking";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 

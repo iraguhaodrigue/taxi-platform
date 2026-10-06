@@ -1,6 +1,12 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from pydantic import BaseModel
 
 router = APIRouter(tags=["tracking"])
+
+
+class LocationUpdate(BaseModel):
+    lat: float
+    lng: float
 
 
 class TripConnections:
@@ -28,6 +34,16 @@ class TripConnections:
 
 
 manager = TripConnections()
+
+
+@router.post("/track/{booking_id}")
+async def post_location(booking_id: int, update: LocationUpdate):
+    """HTTP POST for background location updates from the driver app.
+    Forwards the GPS point to all passenger WebSocket listeners —
+    same broadcast channel as the WebSocket path.
+    """
+    await manager.broadcast(booking_id, {"lat": update.lat, "lng": update.lng})
+    return {"ok": True}
 
 
 @router.websocket("/ws/track/{booking_id}")

@@ -12,7 +12,9 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "This app needs your location to show nearby taxis and track trips."
+          "locationAlwaysAndWhenInUsePermission": "This app needs your location to show nearby taxis and track trips.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
         }
       ],
       [

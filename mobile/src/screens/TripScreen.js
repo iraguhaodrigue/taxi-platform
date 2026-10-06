@@ -2,57 +2,125 @@ import React, { useEffect, useRef, useState } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import MapView, { Marker, UrlTile } from "react-native-maps";
 import { listenToDriver } from "../api/tracking";
+import { getMyBookings } from "../api/client";
+
+const DONE_STATUSES = ["completed", "cancelled"];
 
 export default function TripScreen({ route }) {
   const { booking, taxi } = route.params;
 
+  const mapRef = useRef(null);
+  const userPannedRef = useRef(false);   // true once the user manually drags the map
+
   const [driverLocation, setDriverLocation] = useState(
     taxi.lat && taxi.lng ? { latitude: taxi.lat, longitude: taxi.lng } : null
   );
-  const [status, setStatus] = useState(booking.status);
-  const cleanupRef = useRef(null);
+  const [liveStatus, setLiveStatus] = useState(booking.status);
+  const [wsStatus, setWsStatus] = useState("connecting"); // 'connecting' | 'live'
 
-  const initialRegion = driverLocation
-    ? {
-        latitude: driverLocation.latitude,
-        longitude: driverLocation.longitude,
-        latitudeDelta: 0.02,
-        longitudeDelta: 0.02,
-      }
-    : {
-        latitude: booking.pickup_lat || -1.9441,
-        longitude: booking.pickup_lng || 30.0619,
-        latitudeDelta: 0.05,
-        longitudeDelta: 0.05,
-      };
-
+  // ── WebSocket listener with auto-reconnect ────────────────────────────────
   useEffect(() => {
-    const cleanup = listenToDriver(booking.id, (loc) => {
-      setDriverLocation({ latitude: loc.lat, longitude: loc.lng });
-    });
-    cleanupRef.current = cleanup;
-    return () => cleanup();
+    const stop = listenToDriver(
+      booking.id,
+      (loc) => setDriverLocation({ latitude: loc.lat, longitude: loc.lng }),
+      (s) => setWsStatus(s),
+    );
+    return stop;
   }, [booking.id]);
 
-  const statusColor = {
-    requested: "#f90",
-    accepted: "#29a",
-    ongoing: "#2a7",
-    completed: "#777",
-    cancelled: "#c00",
-  }[status] || "#555";
+  // ── Status polling — every 5 s, stop when trip is done ───────────────────
+  useEffect(() => {
+    if (DONE_STATUSES.includes(liveStatus)) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const list = await getMyBookings();
+        const fresh = list.find((b) => b.id === booking.id);
+        if (fresh) {
+          setLiveStatus(fresh.status);
+          if (DONE_STATUSES.includes(fresh.status)) clearInterval(interval);
+        }
+      } catch {
+        // transient error — keep polling
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [liveStatus]);
+
+  // ── Initial map fit — run once when driver location is first known ────────
+  const fittedRef = useRef(false);
+  useEffect(() => {
+    if (!driverLocation || fittedRef.current || !mapRef.current) return;
+    fittedRef.current = true;
+
+    const coords = [{ latitude: driverLocation.latitude, longitude: driverLocation.longitude }];
+    if (booking.pickup_lat)      coords.push({ latitude: booking.pickup_lat,      longitude: booking.pickup_lng });
+    if (booking.destination_lat) coords.push({ latitude: booking.destination_lat, longitude: booking.destination_lng });
+
+    mapRef.current.fitToCoordinates(coords, {
+      edgePadding: { top: 80, right: 60, bottom: 80, left: 60 },
+      animated: true,
+    });
+  }, [driverLocation]);
+
+  // ── Follow taxi gently — only if user has not manually panned ────────────
+  useEffect(() => {
+    if (!driverLocation || userPannedRef.current || !mapRef.current) return;
+    mapRef.current.animateCamera(
+      { center: { latitude: driverLocation.latitude, longitude: driverLocation.longitude } },
+      { duration: 800 },
+    );
+  }, [driverLocation]);
+
+  // ── Derived display values ────────────────────────────────────────────────
+  const STATUS_LABEL = {
+    requested: "Waiting for driver",
+    accepted:  "Driver is on the way",
+    ongoing:   "Trip in progress",
+    completed: "Trip completed",
+    cancelled: "Booking cancelled",
+  };
+  const STATUS_COLOR = {
+    requested: "#b45309",
+    accepted:  "#1d4ed8",
+    ongoing:   "#166534",
+    completed: "#555",
+    cancelled: "#991b1b",
+  };
+  const statusColor = STATUS_COLOR[liveStatus] || "#555";
 
   return (
     <View style={styles.container}>
+
+      {/* Status bar */}
       <View style={styles.statusBar}>
-        <Text style={styles.statusLabel}>Trip status</Text>
-        <Text style={[styles.statusValue, { color: statusColor }]}>
-          {status.replace("_", " ").toUpperCase()}
-        </Text>
+        <View style={styles.statusRow}>
+          <Text style={[styles.statusValue, { color: statusColor }]}>
+            {STATUS_LABEL[liveStatus] || liveStatus}
+          </Text>
+          <View style={[styles.wsPill, wsStatus === "live" ? styles.wsLive : styles.wsConnecting]}>
+            <Text style={styles.wsText}>
+              {wsStatus === "live" ? "● live" : "◌ connecting…"}
+            </Text>
+          </View>
+        </View>
         <Text style={styles.bookingId}>Booking #{booking.id}</Text>
       </View>
 
-      <MapView style={styles.map} initialRegion={initialRegion} mapType="none">
+      {/* Map */}
+      <MapView
+        ref={mapRef}
+        style={styles.map}
+        mapType="none"
+        initialRegion={{
+          latitude:  driverLocation?.latitude  ?? booking.pickup_lat  ?? -1.9441,
+          longitude: driverLocation?.longitude ?? booking.pickup_lng  ?? 30.0619,
+          latitudeDelta:  0.04,
+          longitudeDelta: 0.04,
+        }}
+        onPanDrag={() => { userPannedRef.current = true; }}
+      >
         <UrlTile
           urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
           maximumZ={19}
@@ -66,14 +134,14 @@ export default function TripScreen({ route }) {
             pinColor="#2a7"
           />
         )}
-        {booking.pickup_lat && booking.pickup_lng && (
+        {booking.pickup_lat != null && (
           <Marker
             coordinate={{ latitude: booking.pickup_lat, longitude: booking.pickup_lng }}
             title="Pickup"
             pinColor="#f90"
           />
         )}
-        {booking.destination_lat && booking.destination_lng && (
+        {booking.destination_lat != null && (
           <Marker
             coordinate={{ latitude: booking.destination_lat, longitude: booking.destination_lng }}
             title="Destination"
@@ -82,6 +150,7 @@ export default function TripScreen({ route }) {
         )}
       </MapView>
 
+      {/* Footer */}
       <View style={styles.footer}>
         <Text style={styles.footerText}>
           {taxi.plate_number} · {taxi.driver_name}
@@ -94,6 +163,7 @@ export default function TripScreen({ route }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+
   statusBar: {
     backgroundColor: "#fff",
     paddingHorizontal: 16,
@@ -101,10 +171,20 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
   },
-  statusLabel: { fontSize: 11, color: "#888", textTransform: "uppercase" },
-  statusValue: { fontSize: 18, fontWeight: "bold" },
+  statusRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  statusValue: { fontSize: 16, fontWeight: "bold" },
   bookingId: { color: "#aaa", fontSize: 12, marginTop: 2 },
+
+  wsPill: {
+    paddingHorizontal: 8, paddingVertical: 2,
+    borderRadius: 12,
+  },
+  wsLive:       { backgroundColor: "#dcfce7" },
+  wsConnecting: { backgroundColor: "#fef3c7" },
+  wsText: { fontSize: 11, fontWeight: "600" },
+
   map: { flex: 1 },
+
   footer: {
     backgroundColor: "#fff",
     padding: 16,
