@@ -1,0 +1,12 @@
+# Python
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.db
+backend/.env
+
+# Node / Expo
+mobile/node_modules/
+mobile/.expo/
+admin/node_modules/
+admin/.next/

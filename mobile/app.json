@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "Taxi Booking",
+    "slug": "taxi-booking",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "This app needs your location to show nearby taxis and track trips."
+        }
+      ]
+    ],
+    "android": {
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
+    },
+    "extra": {
+      "eas": {
+        "projectId": "c8b8e373-1702-4031-bec3-60f5b0c"
+      }
+    }
+  }
+}
