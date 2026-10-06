@@ -37,7 +37,7 @@ export default function TripScreen({ route }) {
   const statusColor = {
     requested: "#f90",
     accepted: "#29a",
-    in_progress: "#2a7",
+    ongoing: "#2a7",
     completed: "#777",
     cancelled: "#c00",
   }[status] || "#555";

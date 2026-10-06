@@ -3,13 +3,17 @@ import axios from "axios";
 // IMPORTANT: change this to your computer's IP when testing on a real phone.
 // "localhost" will NOT work from a phone, because the phone is a different device.
 // Example: const BASE_URL = "http://192.168.1.10:8000";
-const BASE_URL = "http://10.10.103.181:8000"; // works for an Android emulator
+const BASE_URL = "http://146.190.21.86:8000";
+console.log("[client.js] BASE_URL:", BASE_URL);
 
 const api = axios.create({ baseURL: BASE_URL });
 
 let token = null;
 export function setToken(t) {
   token = t;
+}
+export function logout() {
+  token = null;
 }
 
 api.interceptors.request.use((config) => {
@@ -23,7 +27,9 @@ export async function login(phone, password) {
   const body = new URLSearchParams();
   body.append("username", phone);
   body.append("password", password);
-  const res = await api.post("/auth/login", body);
+  const res = await api.post("/auth/login", body, {
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  });
   setToken(res.data.access_token);
   return res.data;
 }
@@ -80,6 +86,23 @@ export async function setVehicleAvailability(vehicleId, available) {
 export async function geocodeSearch(q) {
   const res = await api.get("/geocode/search", { params: { q } });
   return res.data; // [{ name, lat, lng }, ...]
+}
+
+export async function getMyBookings() {
+  const res = await api.get("/bookings/mine");
+  return res.data;
+}
+
+export async function getDriverBookings() {
+  const res = await api.get("/bookings/for-driver");
+  return res.data;
+}
+
+export async function updateBookingStatus(bookingId, status) {
+  const res = await api.patch(`/bookings/${bookingId}/status`, null, {
+    params: { status },
+  });
+  return res.data;
 }
 
 export default api;

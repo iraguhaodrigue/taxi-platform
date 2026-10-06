@@ -16,7 +16,14 @@ export default function LoginScreen({ navigation }) {
         navigation.replace("NearbyTaxis");
       }
     } catch (e) {
-      Alert.alert("Login failed", "Check your phone and password.");
+      if (e.response) {
+        Alert.alert(
+          "Login failed",
+          `Status: ${e.response.status} - ${JSON.stringify(e.response.data)}`
+        );
+      } else {
+        Alert.alert("Login failed", `Network error: ${e.message}`);
+      }
     }
   }
 

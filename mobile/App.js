@@ -1,4 +1,5 @@
 import React from "react";
+import { TouchableOpacity, Text } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
@@ -7,8 +8,23 @@ import NearbyTaxisScreen from "./src/screens/NearbyTaxisScreen";
 import BookingScreen from "./src/screens/BookingScreen";
 import TripScreen from "./src/screens/TripScreen";
 import DriverHomeScreen from "./src/screens/DriverHomeScreen";
+import { logout } from "./src/api/client";
 
 const Stack = createNativeStackNavigator();
+
+function LogoutButton({ navigation }) {
+  return (
+    <TouchableOpacity
+      onPress={() => {
+        logout();
+        navigation.replace("Login");
+      }}
+      style={{ marginRight: 4, paddingHorizontal: 8, paddingVertical: 4 }}
+    >
+      <Text style={{ color: "#c00", fontWeight: "600" }}>Logout</Text>
+    </TouchableOpacity>
+  );
+}
 
 export default function App() {
   return (
@@ -18,7 +34,10 @@ export default function App() {
         <Stack.Screen
           name="NearbyTaxis"
           component={NearbyTaxisScreen}
-          options={{ title: "Taxis near me" }}
+          options={({ navigation }) => ({
+            title: "Taxis near me",
+            headerRight: () => <LogoutButton navigation={navigation} />,
+          })}
         />
         <Stack.Screen
           name="Booking"
@@ -33,7 +52,10 @@ export default function App() {
         <Stack.Screen
           name="DriverHome"
           component={DriverHomeScreen}
-          options={{ title: "Driver Dashboard" }}
+          options={({ navigation }) => ({
+            title: "Driver Dashboard",
+            headerRight: () => <LogoutButton navigation={navigation} />,
+          })}
         />
       </Stack.Navigator>
     </NavigationContainer>

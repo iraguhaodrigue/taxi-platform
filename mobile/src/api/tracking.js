@@ -9,7 +9,7 @@
 
 import * as Location from "expo-location";
 
-const WS_BASE = "ws://10.10.103.181:8000"; // match client.js BASE_URL (ws:// not http://)
+const WS_BASE = "ws://146.190.21.86:8000"; // match client.js BASE_URL (ws:// not http://)
 
 // DRIVER: send my location every few seconds for one booking.
 export function startSendingLocation(bookingId, intervalMs = 4000) {

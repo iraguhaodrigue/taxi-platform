@@ -7,6 +7,7 @@ import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
 import {
   createVehicle, getMyVehicles, createSubscription, setVehicleAvailability,
+  getDriverBookings, updateBookingStatus,
 } from "../api/client";
 import { startSendingLocation } from "../api/tracking";
 
@@ -49,9 +50,16 @@ export default function DriverHomeScreen({ navigation }) {
   // Active trip
   const stopTrackingRef = useRef(null);
   const [tracking, setTracking] = useState(false);
+  const [activeBookingId, setActiveBookingId] = useState(null);
+
+  // Incoming bookings
+  const [driverBookings, setDriverBookings] = useState([]);
+  const [bookingsLoading, setBookingsLoading] = useState(false);
+  const [updatingId, setUpdatingId] = useState(null);
 
   useEffect(() => {
     loadVehicles();
+    loadBookings();
   }, []);
 
   async function loadVehicles() {
@@ -68,6 +76,48 @@ export default function DriverHomeScreen({ navigation }) {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function loadBookings() {
+    setBookingsLoading(true);
+    try {
+      const list = await getDriverBookings();
+      setDriverBookings(list);
+    } catch {
+      // silently ignore — vehicles section will show the main loading error
+    } finally {
+      setBookingsLoading(false);
+    }
+  }
+
+  async function handleStatusUpdate(bookingId, newStatus) {
+    setUpdatingId(bookingId);
+    try {
+      const updated = await updateBookingStatus(bookingId, newStatus);
+      setDriverBookings((prev) =>
+        prev.map((b) => (b.id === updated.id ? updated : b))
+      );
+    } catch (e) {
+      Alert.alert("Error", e?.response?.data?.detail || "Could not update status.");
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
+  async function handleAcceptAndTrack(bookingId) {
+    await handleStatusUpdate(bookingId, "accepted");
+    // Start GPS tracking for this booking
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Location needed", "Allow location to track the trip.");
+      return;
+    }
+    await Location.requestBackgroundPermissionsAsync();
+    if (stopTrackingRef.current) stopTrackingRef.current();
+    const stop = startSendingLocation(bookingId);
+    stopTrackingRef.current = stop;
+    setActiveBookingId(bookingId);
+    setTracking(true);
   }
 
   async function handleRegister() {
@@ -153,6 +203,62 @@ export default function DriverHomeScreen({ navigation }) {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Driver Dashboard</Text>
+
+      {/* ── Incoming bookings ── */}
+      <View style={styles.sectionRow}>
+        <Text style={styles.section}>Incoming Bookings</Text>
+        <Button title="Refresh" onPress={loadBookings} />
+      </View>
+      {bookingsLoading && <ActivityIndicator style={{ marginBottom: 8 }} />}
+      {!bookingsLoading && driverBookings.filter(
+        (b) => ["requested", "accepted", "ongoing"].includes(b.status)
+      ).length === 0 && (
+        <Text style={styles.hint}>No active bookings right now.</Text>
+      )}
+      {driverBookings
+        .filter((b) => ["requested", "accepted", "ongoing"].includes(b.status))
+        .map((b) => (
+          <View key={b.id} style={styles.bookingCard}>
+            <View style={styles.bookingHeader}>
+              <Text style={styles.bookingId}>Booking #{b.id}</Text>
+              <Text style={[styles.statusBadge, statusStyle(b.status)]}>
+                {b.status.replace("_", " ")}
+              </Text>
+            </View>
+            <Text style={styles.bookingDetail}>
+              Fare: {b.estimated_fare} RWF · {b.estimated_distance_km} km · {b.estimated_time_min} min
+            </Text>
+            <View style={styles.bookingActions}>
+              {b.status === "requested" && (
+                updatingId === b.id ? <ActivityIndicator /> : (
+                  <Button
+                    title="Accept & Start GPS"
+                    onPress={() => handleAcceptAndTrack(b.id)}
+                    color="#2a7"
+                  />
+                )
+              )}
+              {b.status === "accepted" && (
+                updatingId === b.id ? <ActivityIndicator /> : (
+                  <Button
+                    title="Mark In Progress"
+                    onPress={() => handleStatusUpdate(b.id, "ongoing")}
+                    color="#29a"
+                  />
+                )
+              )}
+              {b.status === "ongoing" && (
+                updatingId === b.id ? <ActivityIndicator /> : (
+                  <Button
+                    title="Complete Trip"
+                    onPress={() => handleStatusUpdate(b.id, "completed")}
+                    color="#555"
+                  />
+                )
+              )}
+            </View>
+          </View>
+        ))}
 
       {/* ── Register vehicle ── */}
       <Text style={styles.section}>Register a Vehicle</Text>
@@ -278,6 +384,17 @@ function StartTripInput({ onStart }) {
   );
 }
 
+function statusStyle(status) {
+  const colors = {
+    requested: { color: "#b45309", backgroundColor: "#fef3c7" },
+    accepted: { color: "#1d4ed8", backgroundColor: "#dbeafe" },
+    ongoing: { color: "#166534", backgroundColor: "#dcfce7" },
+    completed: { color: "#555", backgroundColor: "#f3f4f6" },
+    cancelled: { color: "#991b1b", backgroundColor: "#fee2e2" },
+  };
+  return colors[status] || {};
+}
+
 const styles = StyleSheet.create({
   container: { padding: 24, flexGrow: 1 },
   title: { fontSize: 26, fontWeight: "bold", marginBottom: 20 },
@@ -297,4 +414,24 @@ const styles = StyleSheet.create({
     justifyContent: "space-between", paddingVertical: 8,
   },
   availLabel: { fontSize: 16 },
+  sectionRow: {
+    flexDirection: "row", alignItems: "center",
+    justifyContent: "space-between", marginTop: 24, marginBottom: 8,
+  },
+  bookingCard: {
+    borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 10,
+    padding: 14, marginBottom: 10, backgroundColor: "#fafafa",
+  },
+  bookingHeader: {
+    flexDirection: "row", justifyContent: "space-between",
+    alignItems: "center", marginBottom: 4,
+  },
+  bookingId: { fontWeight: "700", fontSize: 15 },
+  statusBadge: {
+    fontSize: 12, fontWeight: "600", paddingHorizontal: 8,
+    paddingVertical: 2, borderRadius: 12, overflow: "hidden",
+    textTransform: "capitalize",
+  },
+  bookingDetail: { color: "#555", fontSize: 13, marginBottom: 10 },
+  bookingActions: { flexDirection: "row", gap: 8 },
 });

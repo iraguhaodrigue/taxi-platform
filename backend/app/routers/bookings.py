@@ -63,6 +63,18 @@ def my_bookings(db: Session = Depends(get_db), user: User = Depends(get_current_
     )
 
 
+@router.get("/for-driver", response_model=List[BookingOut])
+def bookings_for_driver(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """All bookings for vehicles owned by the logged-in driver, newest first."""
+    return (
+        db.query(Booking)
+        .join(Vehicle, Booking.vehicle_id == Vehicle.id)
+        .filter(Vehicle.owner_id == user.id)
+        .order_by(Booking.created_at.desc())
+        .all()
+    )
+
+
 @router.patch("/{booking_id}/status", response_model=BookingOut)
 def update_status(
     booking_id: int,

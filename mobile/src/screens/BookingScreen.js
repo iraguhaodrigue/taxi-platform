@@ -4,7 +4,7 @@ import {
   ActivityIndicator, ScrollView, TouchableOpacity,
 } from "react-native";
 import MapView, { Marker, UrlTile } from "react-native-maps";
-import { estimateFare, createBooking, geocodeSearch } from "../api/client";
+import { estimateFare, createBooking, geocodeSearch, getMyBookings } from "../api/client";
 
 const KIGALI = { lat: -1.9441, lng: 30.0619 };
 
@@ -31,6 +31,7 @@ export default function BookingScreen({ route, navigation }) {
   const [estimating, setEstimating] = useState(false);
   const [booking, setBooking] = useState(null);
   const [confirming, setConfirming] = useState(false);
+  const [liveStatus, setLiveStatus] = useState(null);
 
   // Debounced geocode search
   useEffect(() => {
@@ -51,6 +52,27 @@ export default function BookingScreen({ route, navigation }) {
     }, 400);
     return () => clearTimeout(timer);
   }, [searchText]);
+
+  // Poll booking status after confirmation (every 5 s until completed/cancelled)
+  useEffect(() => {
+    if (!booking) return;
+    const DONE = ["completed", "cancelled"];
+    if (DONE.includes(liveStatus)) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const list = await getMyBookings();
+        const fresh = list.find((b) => b.id === booking.id);
+        if (fresh) {
+          setLiveStatus(fresh.status);
+          if (DONE.includes(fresh.status)) clearInterval(interval);
+        }
+      } catch {
+        // ignore transient errors
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [booking, liveStatus]);
 
   function selectSuggestion(place) {
     setDestination({ lat: place.lat, lng: place.lng, name: place.name });
@@ -120,14 +142,35 @@ export default function BookingScreen({ route, navigation }) {
 
   // ── Booking confirmed screen ──────────────────────────────────────────────
   if (booking) {
+    const currentStatus = liveStatus || booking.status;
+    const STATUS_LABEL = {
+      requested: "Waiting for driver to accept…",
+      accepted: "Driver accepted! On the way 🚗",
+      ongoing: "Trip in progress 🛣️",
+      completed: "Trip completed ✓",
+      cancelled: "Booking cancelled",
+    };
+    const STATUS_COLOR = {
+      requested: "#b45309",
+      accepted: "#1d4ed8",
+      ongoing: "#166534",
+      completed: "#555",
+      cancelled: "#991b1b",
+    };
     return (
       <View style={styles.container}>
         <Text style={styles.title}>Booking Confirmed!</Text>
+        <View style={[styles.statusBanner, { borderColor: STATUS_COLOR[currentStatus] || "#ccc" }]}>
+          <Text style={[styles.statusText, { color: STATUS_COLOR[currentStatus] || "#555" }]}>
+            {STATUS_LABEL[currentStatus] || currentStatus}
+          </Text>
+          {!["completed", "cancelled"].includes(currentStatus) && (
+            <ActivityIndicator size="small" style={{ marginTop: 4 }} />
+          )}
+        </View>
         <View style={styles.card}>
           <Text style={styles.label}>Booking ID</Text>
           <Text style={styles.value}>#{booking.id}</Text>
-          <Text style={styles.label}>Status</Text>
-          <Text style={styles.value}>{booking.status}</Text>
           <Text style={styles.label}>Distance</Text>
           <Text style={styles.value}>{booking.estimated_distance_km} km</Text>
           <Text style={styles.label}>Est. time</Text>
@@ -318,4 +361,9 @@ const styles = StyleSheet.create({
   label: { color: "#888", fontSize: 12, marginTop: 8 },
   value: { fontSize: 16, fontWeight: "500" },
   fare: { fontSize: 20, color: "#2a7", fontWeight: "bold" },
+  statusBanner: {
+    borderWidth: 2, borderRadius: 10, padding: 14,
+    marginBottom: 12, alignItems: "center",
+  },
+  statusText: { fontSize: 16, fontWeight: "600", textAlign: "center" },
 });
