@@ -1,12 +1,15 @@
 import React, { useEffect, useRef, useState } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import {
+  View, Text, StyleSheet, Modal, TextInput,
+  TouchableOpacity, ActivityIndicator, Alert,
+} from "react-native";
 import MapView, { Marker, UrlTile } from "react-native-maps";
 import { listenToDriver } from "../api/tracking";
-import { getMyBookings } from "../api/client";
+import { getMyBookings, submitRating } from "../api/client";
 
 const DONE_STATUSES = ["completed", "cancelled"];
 
-export default function TripScreen({ route }) {
+export default function TripScreen({ route, navigation }) {
   const { booking, taxi } = route.params;
 
   const mapRef = useRef(null);
@@ -17,6 +20,13 @@ export default function TripScreen({ route }) {
   );
   const [liveStatus, setLiveStatus] = useState(booking.status);
   const [wsStatus, setWsStatus] = useState("connecting"); // 'connecting' | 'live'
+
+  // Rating prompt (shown once the trip completes)
+  const [showRating, setShowRating] = useState(false);
+  const [stars, setStars] = useState(0);
+  const [comment, setComment] = useState("");
+  const [submittingRating, setSubmittingRating] = useState(false);
+  const ratingPromptedRef = useRef(false);
 
   // ── WebSocket listener with auto-reconnect ────────────────────────────────
   useEffect(() => {
@@ -72,6 +82,43 @@ export default function TripScreen({ route }) {
       { duration: 800 },
     );
   }, [driverLocation]);
+
+  // ── Show the rating prompt once, when the trip completes ──────────────────
+  useEffect(() => {
+    if (liveStatus === "completed" && !ratingPromptedRef.current) {
+      ratingPromptedRef.current = true;
+      setShowRating(true);
+    }
+  }, [liveStatus]);
+
+  function goHome() {
+    navigation.navigate("NearbyTaxis");
+  }
+
+  async function handleSubmitRating() {
+    if (stars < 1) {
+      Alert.alert("Pick a rating", "Tap a star from 1 to 5 first.");
+      return;
+    }
+    setSubmittingRating(true);
+    try {
+      await submitRating(booking.id, stars, comment);
+      setShowRating(false);
+      Alert.alert("Thank you!", "Your rating has been submitted.", [
+        { text: "OK", onPress: goHome },
+      ]);
+    } catch (e) {
+      Alert.alert("Could not submit", e?.response?.data?.detail || "Please try again.");
+    } finally {
+      setSubmittingRating(false);
+    }
+  }
+
+  // Passenger dismissed the prompt without rating — don't nag, just go home.
+  function dismissRating() {
+    setShowRating(false);
+    goHome();
+  }
 
   // ── Derived display values ────────────────────────────────────────────────
   const STATUS_LABEL = {
@@ -157,6 +204,54 @@ export default function TripScreen({ route }) {
         </Text>
         <Text style={styles.fare}>Est. fare: {booking.estimated_fare} RWF</Text>
       </View>
+
+      {/* Rating prompt */}
+      <Modal
+        visible={showRating}
+        transparent
+        animationType="slide"
+        onRequestClose={dismissRating}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Rate your trip</Text>
+            <Text style={styles.modalSub}>
+              {taxi.plate_number} · {taxi.driver_name}
+            </Text>
+
+            <View style={styles.starsRow}>
+              {[1, 2, 3, 4, 5].map((n) => (
+                <TouchableOpacity key={n} onPress={() => setStars(n)} hitSlop={6}>
+                  <Text style={[styles.star, n <= stars ? styles.starOn : styles.starOff]}>
+                    {n <= stars ? "★" : "☆"}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TextInput
+              style={styles.commentBox}
+              placeholder="Add a comment (optional)"
+              value={comment}
+              onChangeText={setComment}
+              multiline
+            />
+
+            <View style={styles.modalActions}>
+              {submittingRating ? (
+                <ActivityIndicator />
+              ) : (
+                <TouchableOpacity style={styles.submitBtn} onPress={handleSubmitRating}>
+                  <Text style={styles.submitBtnText}>Submit Rating</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity style={styles.skipBtn} onPress={dismissRating}>
+                <Text style={styles.skipBtnText}>Skip</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -193,4 +288,47 @@ const styles = StyleSheet.create({
   },
   footerText: { fontSize: 16, fontWeight: "500" },
   fare: { color: "#2a7", fontWeight: "bold", marginTop: 4, fontSize: 16 },
+
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "flex-end",
+  },
+  modalCard: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 24,
+    paddingBottom: 32,
+  },
+  modalTitle: { fontSize: 20, fontWeight: "bold", textAlign: "center" },
+  modalSub: { color: "#777", textAlign: "center", marginTop: 2, marginBottom: 16 },
+  starsRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  star: { fontSize: 44, marginHorizontal: 4 },
+  starOn: { color: "#f5a623" },
+  starOff: { color: "#ccc" },
+  commentBox: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 10,
+    padding: 12,
+    minHeight: 70,
+    textAlignVertical: "top",
+    fontSize: 15,
+    marginBottom: 16,
+  },
+  modalActions: { gap: 10 },
+  submitBtn: {
+    backgroundColor: "#2a7",
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  submitBtnText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  skipBtn: { paddingVertical: 10, alignItems: "center" },
+  skipBtnText: { color: "#888", fontSize: 15 },
 });

@@ -1,12 +1,13 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View, Text, TextInput, Button, StyleSheet, Alert,
   ScrollView, Switch, ActivityIndicator,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import * as Location from "expo-location";
 import {
   createVehicle, getMyVehicles, createSubscription, setVehicleAvailability,
-  getDriverBookings, updateBookingStatus,
+  getDriverBookings, updateBookingStatus, updateVehicleLocation,
 } from "../api/client";
 import { startBackgroundLocation, stopBackgroundLocation } from "../api/tracking";
 
@@ -34,6 +35,10 @@ export default function DriverHomeScreen({ navigation }) {
   // Availability
   const [available, setAvailable] = useState(false);
   const [togglingAvail, setTogglingAvail] = useState(false);
+
+  // Location updates
+  const [locUpdating, setLocUpdating] = useState(false);
+  const [lastLocUpdate, setLastLocUpdate] = useState(null);
 
   // Active trip
   const stopTrackingRef = useRef(null);
@@ -124,6 +129,45 @@ export default function DriverHomeScreen({ navigation }) {
       Alert.alert("Location error", e.message);
     }
   }
+
+  async function handleUpdateLocation(silent = false) {
+    if (!selectedVehicle) {
+      if (!silent) Alert.alert("No vehicle", "Register a vehicle first.");
+      return;
+    }
+    if (!silent) setLocUpdating(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        if (!silent) Alert.alert("Location needed", "Allow location to update your position.");
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({});
+      const updated = await updateVehicleLocation(
+        selectedVehicle.id,
+        pos.coords.latitude,
+        pos.coords.longitude
+      );
+      setSelectedVehicle(updated);
+      setVehicles((prev) => prev.map((v) => (v.id === updated.id ? updated : v)));
+      setLastLocUpdate(new Date());
+    } catch (e) {
+      if (!silent) Alert.alert("Error", "Could not update location.");
+    } finally {
+      if (!silent) setLocUpdating(false);
+    }
+  }
+
+  // Auto-refresh location every 30 s — only while this screen is focused AND
+  // the driver is available. Stops on blur (screen left) or when unavailable,
+  // and the cleanup clears the timer so it never leaks.
+  useFocusEffect(
+    useCallback(() => {
+      if (!available || !selectedVehicle) return;
+      const interval = setInterval(() => handleUpdateLocation(true), 30000);
+      return () => clearInterval(interval);
+    }, [available, selectedVehicle])
+  );
 
   async function handleRegister() {
     if (!plate || !driverName || !driverPhone) {
@@ -332,6 +376,23 @@ export default function DriverHomeScreen({ navigation }) {
             )}
           </View>
 
+          {/* ── My location ── */}
+          <Text style={styles.section}>My Location</Text>
+          <Text style={styles.hint}>
+            Update your GPS so passengers can find you.
+            {available ? " Auto-refreshing every 30 s while available." : ""}
+          </Text>
+          {locUpdating ? (
+            <ActivityIndicator />
+          ) : (
+            <Button title="Update my location" onPress={() => handleUpdateLocation(false)} />
+          )}
+          {lastLocUpdate && (
+            <Text style={styles.locTime}>
+              Location updated {lastLocUpdate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </Text>
+          )}
+
         </>
       )}
     </ScrollView>
@@ -368,6 +429,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between", paddingVertical: 8,
   },
   availLabel: { fontSize: 16 },
+  locTime: { color: "#2a7", fontSize: 13, marginTop: 8 },
   sectionRow: {
     flexDirection: "row", alignItems: "center",
     justifyContent: "space-between", marginTop: 24, marginBottom: 8,

@@ -83,6 +83,13 @@ export async function setVehicleAvailability(vehicleId, available) {
   return res.data;
 }
 
+export async function updateVehicleLocation(vehicleId, lat, lng) {
+  const res = await api.patch(`/vehicles/${vehicleId}/location`, null, {
+    params: { lat, lng },
+  });
+  return res.data;
+}
+
 export async function geocodeSearch(q) {
   const res = await api.get("/geocode/search", { params: { q } });
   return res.data; // [{ name, lat, lng }, ...]
@@ -102,6 +109,20 @@ export async function updateBookingStatus(bookingId, status) {
   const res = await api.patch(`/bookings/${bookingId}/status`, null, {
     params: { status },
   });
+  return res.data;
+}
+
+export async function submitRating(bookingId, stars, comment) {
+  const res = await api.post("/ratings", {
+    booking_id: bookingId,
+    stars,
+    comment: comment || null,
+  });
+  return res.data;
+}
+
+export async function getVehicleRatings(vehicleId) {
+  const res = await api.get(`/ratings/vehicle/${vehicleId}`);
   return res.data;
 }
 
