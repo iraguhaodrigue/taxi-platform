@@ -8,8 +8,19 @@ import { estimateFare, createBooking, geocodeSearch, getMyBookings } from "../ap
 
 const KIGALI = { lat: -1.9441, lng: 30.0619 };
 
+// Build a human-readable description of an error: the message, plus the HTTP
+// status and response body when the server actually answered.
+function describeError(e) {
+  const parts = [];
+  if (e?.message) parts.push(e.message);
+  if (e?.response?.status != null) parts.push(`Status: ${e.response.status}`);
+  if (e?.response?.data != null) parts.push(JSON.stringify(e.response.data));
+  return parts.join("\n") || "Unknown error";
+}
+
 export default function BookingScreen({ route, navigation }) {
-  const { taxi, userLocation } = route.params;
+  // Guard against a missing navigation param so a bad route never crashes the app.
+  const { taxi, userLocation } = route.params || {};
   const pickup = userLocation || KIGALI;
 
   // Address search
@@ -75,9 +86,10 @@ export default function BookingScreen({ route, navigation }) {
   }, [booking, liveStatus]);
 
   function selectSuggestion(place) {
-    setDestination({ lat: place.lat, lng: place.lng, name: place.name });
+    const name = place?.name || "Selected place";
+    setDestination({ lat: place.lat, lng: place.lng, name });
     // Show only the first segment (before first comma) as display text
-    setSearchText(place.name.split(",")[0].trim());
+    setSearchText(name.split(",")[0].trim());
     setSuggestions([]);
     setEstimate(null);
     setMapRegion({
@@ -115,14 +127,23 @@ export default function BookingScreen({ route, navigation }) {
         { lat: destination.lat, lng: destination.lng }
       );
       setEstimate(result);
-    } catch {
-      Alert.alert("Error", "Could not get fare estimate. Is the backend running?");
+    } catch (e) {
+      Alert.alert("Estimate failed", describeError(e));
     } finally {
       setEstimating(false);
     }
   }
 
   async function handleConfirm() {
+    // Guard required values so we never read a property off undefined.
+    if (!taxi?.id) {
+      Alert.alert("Missing taxi", "This taxi has no id. Go back and pick a taxi again.");
+      return;
+    }
+    if (!destination) {
+      Alert.alert("No destination", "Set a destination before confirming.");
+      return;
+    }
     setConfirming(true);
     try {
       const result = await createBooking({
@@ -134,10 +155,24 @@ export default function BookingScreen({ route, navigation }) {
       });
       setBooking(result);
     } catch (e) {
-      Alert.alert("Booking failed", e?.response?.data?.detail || "Please try again.");
+      // Show the real error and stay on the screen — never navigate away.
+      Alert.alert("Booking failed", describeError(e));
     } finally {
       setConfirming(false);
     }
+  }
+
+  // ── Missing navigation param — show a safe fallback, don't crash ──────────
+  if (!taxi) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.title}>Something went wrong</Text>
+        <Text style={styles.sub}>
+          No taxi was passed to this screen. Go back and choose a taxi again.
+        </Text>
+        <Button title="Go back" onPress={() => navigation.goBack()} />
+      </View>
+    );
   }
 
   // ── Booking confirmed screen ──────────────────────────────────────────────
