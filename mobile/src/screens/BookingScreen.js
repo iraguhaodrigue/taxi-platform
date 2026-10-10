@@ -135,26 +135,34 @@ export default function BookingScreen({ route, navigation }) {
   }
 
   async function handleConfirm() {
-    // Guard required values so we never read a property off undefined.
-    if (!taxi?.id) {
-      Alert.alert("Missing taxi", "This taxi has no id. Go back and pick a taxi again.");
+    // Name exactly which required value is missing, rather than crashing on it.
+    const missing = [];
+    if (taxi?.id == null) missing.push("vehicle_id (taxi.id)");
+    if (destination?.lat == null) missing.push("destination.lat");
+    if (destination?.lng == null) missing.push("destination.lng");
+    if (pickup?.lat == null) missing.push("pickup.lat");
+    if (pickup?.lng == null) missing.push("pickup.lng");
+    if (missing.length > 0) {
+      Alert.alert("Cannot book — missing data", `Undefined: ${missing.join(", ")}`);
       return;
     }
-    if (!destination) {
-      Alert.alert("No destination", "Set a destination before confirming.");
-      return;
-    }
+
+    const payload = {
+      vehicle_id: taxi.id,
+      pickup_lat: pickup.lat,
+      pickup_lng: pickup.lng,
+      destination_lat: destination.lat,
+      destination_lng: destination.lng,
+    };
+    console.log("[handleConfirm] about to POST /bookings →", JSON.stringify(payload));
+
     setConfirming(true);
     try {
-      const result = await createBooking({
-        vehicle_id: taxi.id,
-        pickup_lat: pickup.lat,
-        pickup_lng: pickup.lng,
-        destination_lat: destination.lat,
-        destination_lng: destination.lng,
-      });
+      const result = await createBooking(payload);
+      console.log("[handleConfirm] POST /bookings OK →", JSON.stringify(result));
       setBooking(result);
     } catch (e) {
+      console.log("[handleConfirm] POST /bookings FAILED →", describeError(e));
       // Show the real error and stay on the screen — never navigate away.
       Alert.alert("Booking failed", describeError(e));
     } finally {

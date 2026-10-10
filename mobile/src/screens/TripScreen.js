@@ -10,15 +10,16 @@ import { getMyBookings, submitRating } from "../api/client";
 const DONE_STATUSES = ["completed", "cancelled"];
 
 export default function TripScreen({ route, navigation }) {
-  const { booking, taxi } = route.params;
+  // Guard against missing params so a bad navigation can't crash on render.
+  const { booking, taxi } = route.params || {};
 
   const mapRef = useRef(null);
   const userPannedRef = useRef(false);   // true once the user manually drags the map
 
   const [driverLocation, setDriverLocation] = useState(
-    taxi.lat && taxi.lng ? { latitude: taxi.lat, longitude: taxi.lng } : null
+    taxi?.lat && taxi?.lng ? { latitude: taxi.lat, longitude: taxi.lng } : null
   );
-  const [liveStatus, setLiveStatus] = useState(booking.status);
+  const [liveStatus, setLiveStatus] = useState(booking?.status);
   const [wsStatus, setWsStatus] = useState("connecting"); // 'connecting' | 'live'
 
   // Rating prompt (shown once the trip completes)
@@ -30,13 +31,14 @@ export default function TripScreen({ route, navigation }) {
 
   // ── WebSocket listener with auto-reconnect ────────────────────────────────
   useEffect(() => {
+    if (booking?.id == null) return;
     const stop = listenToDriver(
       booking.id,
       (loc) => setDriverLocation({ latitude: loc.lat, longitude: loc.lng }),
       (s) => setWsStatus(s),
     );
     return stop;
-  }, [booking.id]);
+  }, [booking?.id]);
 
   // ── Status polling — every 5 s, stop when trip is done ───────────────────
   useEffect(() => {
@@ -45,7 +47,7 @@ export default function TripScreen({ route, navigation }) {
     const interval = setInterval(async () => {
       try {
         const list = await getMyBookings();
-        const fresh = list.find((b) => b.id === booking.id);
+        const fresh = list.find((b) => b.id === booking?.id);
         if (fresh) {
           setLiveStatus(fresh.status);
           if (DONE_STATUSES.includes(fresh.status)) clearInterval(interval);
@@ -65,8 +67,8 @@ export default function TripScreen({ route, navigation }) {
     fittedRef.current = true;
 
     const coords = [{ latitude: driverLocation.latitude, longitude: driverLocation.longitude }];
-    if (booking.pickup_lat)      coords.push({ latitude: booking.pickup_lat,      longitude: booking.pickup_lng });
-    if (booking.destination_lat) coords.push({ latitude: booking.destination_lat, longitude: booking.destination_lng });
+    if (booking?.pickup_lat)      coords.push({ latitude: booking.pickup_lat,      longitude: booking.pickup_lng });
+    if (booking?.destination_lat) coords.push({ latitude: booking.destination_lat, longitude: booking.destination_lng });
 
     mapRef.current.fitToCoordinates(coords, {
       edgePadding: { top: 80, right: 60, bottom: 80, left: 60 },
@@ -102,7 +104,7 @@ export default function TripScreen({ route, navigation }) {
     }
     setSubmittingRating(true);
     try {
-      await submitRating(booking.id, stars, comment);
+      await submitRating(booking?.id, stars, comment);
       setShowRating(false);
       Alert.alert("Thank you!", "Your rating has been submitted.", [
         { text: "OK", onPress: goHome },
@@ -136,6 +138,26 @@ export default function TripScreen({ route, navigation }) {
     cancelled: "#991b1b",
   };
   const statusColor = STATUS_COLOR[liveStatus] || "#555";
+
+  // Missing navigation params — show a safe fallback instead of crashing.
+  if (!booking || !taxi) {
+    return (
+      <View style={[styles.container, { padding: 24, justifyContent: "center" }]}>
+        <Text style={{ fontSize: 18, fontWeight: "bold", marginBottom: 8 }}>
+          Trip details unavailable
+        </Text>
+        <Text style={{ color: "#666", marginBottom: 20 }}>
+          This trip is missing its booking or taxi info. Go back and try again.
+        </Text>
+        <TouchableOpacity
+          onPress={() => navigation.navigate("NearbyTaxis")}
+          style={{ backgroundColor: "#2a7", borderRadius: 10, paddingVertical: 14, alignItems: "center" }}
+        >
+          <Text style={{ color: "#fff", fontWeight: "700" }}>Back to taxis</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
