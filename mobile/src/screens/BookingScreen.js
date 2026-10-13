@@ -3,10 +3,15 @@ import {
   View, Text, TextInput, Button, StyleSheet, Alert,
   ActivityIndicator, ScrollView, TouchableOpacity,
 } from "react-native";
-import MapView, { Marker, UrlTile } from "react-native-maps";
+import OsmMap from "../components/OsmMap";
 import { estimateFare, createBooking, geocodeSearch, getMyBookings } from "../api/client";
 
 const KIGALI = { lat: -1.9441, lng: 30.0619 };
+
+// The map crashes/misbehaves if handed a non-finite coordinate.
+// These guards ensure we never pass null/undefined/NaN to a region or marker.
+const isNum = (n) => typeof n === "number" && Number.isFinite(n);
+const isCoord = (c) => !!c && isNum(c.lat) && isNum(c.lng);
 
 // Build a human-readable description of an error: the message, plus the HTTP
 // status and response body when the server actually answered.
@@ -21,7 +26,8 @@ function describeError(e) {
 export default function BookingScreen({ route, navigation }) {
   // Guard against a missing navigation param so a bad route never crashes the app.
   const { taxi, userLocation } = route.params || {};
-  const pickup = userLocation || KIGALI;
+  // Only trust userLocation if both coords are finite numbers; else fall back to Kigali.
+  const pickup = isCoord(userLocation) ? userLocation : KIGALI;
 
   // Address search
   const [searchText, setSearchText] = useState("");
@@ -86,29 +92,36 @@ export default function BookingScreen({ route, navigation }) {
   }, [booking, liveStatus]);
 
   function selectSuggestion(place) {
+    // Geocode results may arrive as strings — coerce, then require finite numbers.
+    const lat = Number(place?.lat);
+    const lng = Number(place?.lng);
+    if (!isNum(lat) || !isNum(lng)) {
+      Alert.alert("Invalid place", "That place has no valid coordinates. Try another.");
+      return;
+    }
     const name = place?.name || "Selected place";
-    setDestination({ lat: place.lat, lng: place.lng, name });
+    setDestination({ lat, lng, name });
     // Show only the first segment (before first comma) as display text
     setSearchText(name.split(",")[0].trim());
     setSuggestions([]);
     setEstimate(null);
     setMapRegion({
-      latitude: place.lat,
-      longitude: place.lng,
+      latitude: lat,
+      longitude: lng,
       latitudeDelta: 0.03,
       longitudeDelta: 0.03,
     });
   }
 
-  function handleMapPress(e) {
-    const { latitude, longitude } = e.nativeEvent.coordinate;
-    setDestination({ lat: latitude, lng: longitude, name: "Tapped on map" });
+  function handleMapTap(lat, lng) {
+    if (!isNum(lat) || !isNum(lng)) return;
+    setDestination({ lat, lng, name: "Tapped on map" });
     setSearchText("Tapped on map");
     setSuggestions([]);
     setEstimate(null);
     setMapRegion({
-      latitude,
-      longitude,
+      latitude: lat,
+      longitude: lng,
       latitudeDelta: 0.03,
       longitudeDelta: 0.03,
     });
@@ -135,15 +148,17 @@ export default function BookingScreen({ route, navigation }) {
   }
 
   async function handleConfirm() {
-    // Name exactly which required value is missing, rather than crashing on it.
-    const missing = [];
-    if (taxi?.id == null) missing.push("vehicle_id (taxi.id)");
-    if (destination?.lat == null) missing.push("destination.lat");
-    if (destination?.lng == null) missing.push("destination.lng");
-    if (pickup?.lat == null) missing.push("pickup.lat");
-    if (pickup?.lng == null) missing.push("pickup.lng");
-    if (missing.length > 0) {
-      Alert.alert("Cannot book — missing data", `Undefined: ${missing.join(", ")}`);
+    if (!taxi?.id) {
+      Alert.alert("Missing taxi", "Go back and pick a taxi again.");
+      return;
+    }
+    // Never build a booking with an undefined/NaN destination.
+    if (!isCoord(destination)) {
+      Alert.alert("Choose a destination", "Please choose a destination first.");
+      return;
+    }
+    if (!isCoord(pickup)) {
+      Alert.alert("Location unavailable", "Your pickup location isn't ready yet. Try again.");
       return;
     }
 
@@ -230,6 +245,11 @@ export default function BookingScreen({ route, navigation }) {
   }
 
   // ── Booking input screen ──────────────────────────────────────────────────
+  // Never hand the map a non-finite region; default to Kigali.
+  const safeRegion = (isNum(mapRegion?.latitude) && isNum(mapRegion?.longitude))
+    ? mapRegion
+    : { latitude: KIGALI.lat, longitude: KIGALI.lng, latitudeDelta: 0.05, longitudeDelta: 0.05 };
+
   return (
     <View style={styles.flex}>
       <ScrollView
@@ -285,32 +305,21 @@ export default function BookingScreen({ route, navigation }) {
         <Text style={styles.hint}>
           {destination ? `📍 ${destination.name.split(",")[0]}` : "Tap the map to set destination"}
         </Text>
-        <MapView
-          style={styles.map}
-          region={mapRegion}
-          mapType="none"
-          scrollEnabled={false}
-          onPress={handleMapPress}
-        >
-          <UrlTile
-            urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-            maximumZ={19}
-            flipY={false}
+        <View style={styles.map}>
+          <OsmMap
+            style={{ flex: 1 }}
+            center={{ lat: safeRegion.latitude, lng: safeRegion.longitude }}
+            tappable
+            onPress={handleMapTap}
+            markers={[
+              isCoord(pickup) && { lat: pickup.lat, lng: pickup.lng, color: "#f90", title: "Pickup" },
+              isCoord(destination) && {
+                lat: destination.lat, lng: destination.lng, color: "#c00",
+                title: (destination.name || "").split(",")[0],
+              },
+            ].filter(Boolean)}
           />
-          <Marker
-            coordinate={{ latitude: pickup.lat, longitude: pickup.lng }}
-            title="Pickup"
-            pinColor="#f90"
-          />
-          {destination && (
-            <Marker
-              coordinate={{ latitude: destination.lat, longitude: destination.lng }}
-              title="Destination"
-              description={destination.name.split(",")[0]}
-              pinColor="#c00"
-            />
-          )}
-        </MapView>
+        </View>
 
         {/* Estimate button */}
         <View style={styles.buttonRow}>
