@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
 import {
-  View, Text, FlatList, StyleSheet, ActivityIndicator, Button,
+  View, Text, FlatList, StyleSheet, ActivityIndicator,
 } from "react-native";
+import PillButton from "../components/PillButton";
 import { getMe, getMyBookings, getDriverBookings } from "../api/client";
+import { colors, radius, spacing, font, cardShadow } from "../theme";
 
 const STATUS_LABEL = {
   requested: "Requested",
@@ -63,21 +65,26 @@ export default function HistoryScreen() {
     load();
   }, []);
 
-  if (loading) return <ActivityIndicator style={{ flex: 1 }} size="large" />;
+  if (loading) {
+    return (
+      <View style={styles.centerScreen}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   if (error) {
     return (
-      <View style={styles.center}>
+      <View style={styles.centerScreen}>
         <Text style={styles.errorText}>{error}</Text>
-        <View style={{ marginTop: 16 }}>
-          <Button title="Try again" onPress={() => load()} />
-        </View>
+        <PillButton title="Try again" onPress={() => load()} style={{ marginTop: spacing.lg }} />
       </View>
     );
   }
 
   return (
     <FlatList
+      style={styles.screen}
       contentContainerStyle={styles.list}
       data={bookings}
       keyExtractor={(item) => String(item.id)}
@@ -86,11 +93,15 @@ export default function HistoryScreen() {
       ListHeaderComponent={
         <View style={styles.headerRow}>
           <Text style={styles.heading}>Trip History</Text>
-          <Button title="Refresh" onPress={() => load(true)} />
+          <PillButton
+            title="Refresh"
+            onPress={() => load(true)}
+            style={{ paddingVertical: 8, paddingHorizontal: 18 }}
+          />
         </View>
       }
       ListEmptyComponent={
-        <View style={styles.center}>
+        <View style={styles.card}>
           <Text style={styles.emptyTitle}>No trips yet</Text>
           <Text style={styles.emptyBody}>
             Your past trips will appear here once you've taken one.
@@ -122,38 +133,42 @@ export default function HistoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  list: { padding: 16, flexGrow: 1 },
+  screen: { flex: 1, backgroundColor: colors.screen },
+  list: { padding: spacing.lg, flexGrow: 1 },
+  centerScreen: {
+    flex: 1, alignItems: "center", justifyContent: "center",
+    backgroundColor: colors.screen, paddingHorizontal: spacing.xl,
+  },
   headerRow: {
     flexDirection: "row", alignItems: "center",
-    justifyContent: "space-between", marginBottom: 12,
+    justifyContent: "space-between", marginBottom: spacing.md,
   },
-  heading: { fontSize: 22, fontWeight: "bold" },
+  heading: { fontFamily: font.family, fontSize: 22, color: colors.text },
   card: {
-    borderWidth: 1, borderColor: "#eee", borderRadius: 10,
-    padding: 16, marginBottom: 12,
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    ...cardShadow,
   },
   cardTop: {
     flexDirection: "row", justifyContent: "space-between",
     alignItems: "center", marginBottom: 6,
   },
-  date: { fontSize: 14, color: "#333", fontWeight: "500", flex: 1, marginRight: 8 },
+  date: { fontFamily: font.familyMedium, fontSize: 14, color: colors.text, flex: 1, marginRight: 8 },
   badge: {
-    fontSize: 12, fontWeight: "600", paddingHorizontal: 8,
+    fontFamily: font.familyMedium, fontSize: 12, paddingHorizontal: 8,
     paddingVertical: 2, borderRadius: 12, overflow: "hidden",
   },
-  detail: { color: "#555", fontSize: 14, marginBottom: 2 },
-  fare: { color: "#2a7", fontWeight: "bold", fontSize: 16 },
-  bookingId: { color: "#aaa", fontSize: 12, marginTop: 4 },
-  center: {
-    flex: 1, alignItems: "center", justifyContent: "center",
-    paddingHorizontal: 32, paddingTop: 80,
-  },
+  detail: { fontFamily: font.familyRegular, color: colors.textMuted, fontSize: 14, marginBottom: 2 },
+  fare: { fontFamily: font.familyBold, color: colors.primary, fontSize: 16 },
+  bookingId: { fontFamily: font.familyRegular, color: colors.textMuted, fontSize: 12, marginTop: 4 },
   emptyTitle: {
-    fontSize: 17, fontWeight: "600", color: "#333",
-    textAlign: "center", marginBottom: 8,
+    fontFamily: font.family, fontSize: 17, color: colors.text,
+    textAlign: "center", marginBottom: spacing.sm,
   },
-  emptyBody: { fontSize: 14, color: "#777", textAlign: "center", lineHeight: 20 },
+  emptyBody: { fontFamily: font.familyRegular, fontSize: 14, color: colors.textMuted, textAlign: "center", lineHeight: 20 },
   errorText: {
-    fontSize: 15, color: "#c00", textAlign: "center", paddingHorizontal: 24,
+    fontFamily: font.familyRegular, fontSize: 15, color: colors.danger, textAlign: "center", paddingHorizontal: 24,
   },
 });

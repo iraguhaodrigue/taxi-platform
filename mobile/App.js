@@ -1,9 +1,18 @@
 import React, { useEffect, useState } from "react";
-import { View, ScrollView, TouchableOpacity, Text, Button } from "react-native";
+import { View, ScrollView, TouchableOpacity, Text, Button, ActivityIndicator } from "react-native";
 // Register the background location task before any navigation loads.
 import "./src/api/tracking";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, getFocusedRouteNameFromRoute } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { Ionicons } from "@expo/vector-icons";
+import {
+  useFonts,
+  Poppins_400Regular,
+  Poppins_500Medium,
+  Poppins_600SemiBold,
+  Poppins_700Bold,
+} from "@expo-google-fonts/poppins";
 
 import LoginScreen from "./src/screens/LoginScreen";
 import NearbyTaxisScreen from "./src/screens/NearbyTaxisScreen";
@@ -11,12 +20,37 @@ import BookingScreen from "./src/screens/BookingScreen";
 import TripScreen from "./src/screens/TripScreen";
 import DriverHomeScreen from "./src/screens/DriverHomeScreen";
 import HistoryScreen from "./src/screens/HistoryScreen";
+import SettingsScreen from "./src/screens/SettingsScreen";
 import { logout } from "./src/api/client";
+import { colors, font } from "./src/theme";
 
-const Stack = createNativeStackNavigator();
+const RootStack = createNativeStackNavigator();
+const HomeStack = createNativeStackNavigator();
+const Tab = createBottomTabNavigator();
 
-// Full-screen error display — shows message, stack, and component stack so the
-// REAL crash is visible on-device instead of the app reloading to Login.
+// Shared navy header styling for all stack headers.
+const navyHeader = {
+  headerStyle: { backgroundColor: colors.header },
+  headerTintColor: colors.white,
+  headerTitleStyle: { fontFamily: font.family },
+};
+
+const baseTabBar = {
+  backgroundColor: colors.card,
+  borderTopColor: colors.border,
+  height: 60,
+  paddingBottom: 6,
+  paddingTop: 6,
+};
+
+// Hide the tab bar while inside the booking/trip detail screens.
+function tabBarForRoute(route) {
+  const name = getFocusedRouteNameFromRoute(route) ?? "NearbyTaxis";
+  if (name === "Booking" || name === "Trip") return { display: "none" };
+  return baseTabBar;
+}
+
+// ── Full-screen error display (shows message + stack instead of a silent reload) ──
 function ErrorScreen({ error, componentStack, onReset }) {
   return (
     <ScrollView contentContainerStyle={errStyles.container}>
@@ -40,9 +74,6 @@ function ErrorScreen({ error, componentStack, onReset }) {
   );
 }
 
-// Catches errors thrown during render / lifecycle anywhere below it.
-// (It does NOT catch errors in event handlers or async callbacks — the global
-// ErrorUtils handler in App covers those.)
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -69,14 +100,15 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-function HeaderButtons({ navigation }) {
+// History + Logout buttons for the driver dashboard header (navy bar → light text).
+function DriverHeaderButtons({ navigation }) {
   return (
     <View style={{ flexDirection: "row", alignItems: "center" }}>
       <TouchableOpacity
         onPress={() => navigation.navigate("History")}
         style={{ paddingHorizontal: 8, paddingVertical: 4 }}
       >
-        <Text style={{ color: "#1d4ed8", fontWeight: "600" }}>History</Text>
+        <Text style={{ color: colors.white, fontFamily: font.familyMedium }}>History</Text>
       </TouchableOpacity>
       <TouchableOpacity
         onPress={() => {
@@ -85,24 +117,69 @@ function HeaderButtons({ navigation }) {
         }}
         style={{ marginRight: 4, paddingHorizontal: 8, paddingVertical: 4 }}
       >
-        <Text style={{ color: "#c00", fontWeight: "600" }}>Logout</Text>
+        <Text style={{ color: "#ffd0d0", fontFamily: font.familyMedium }}>Logout</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
-export default function App() {
-  // Catch fatal errors from event handlers / async code (which error boundaries
-  // miss). Showing them here stops the release-build reload that otherwise wipes
-  // the in-memory auth token and dumps the user back on Login.
-  const [fatal, setFatal] = useState(null);
+// The passenger booking flow (nearby list → booking → live trip), used by Home and Search tabs.
+function BookingFlowStack() {
+  return (
+    <HomeStack.Navigator screenOptions={navyHeader}>
+      <HomeStack.Screen name="NearbyTaxis" component={NearbyTaxisScreen} options={{ title: "Taxis near me" }} />
+      <HomeStack.Screen name="Booking" component={BookingScreen} options={{ title: "Book a Taxi" }} />
+      <HomeStack.Screen name="Trip" component={TripScreen} options={{ headerShown: false }} />
+    </HomeStack.Navigator>
+  );
+}
 
+function MainTabs() {
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textMuted,
+        tabBarLabelStyle: { fontFamily: font.familyMedium, fontSize: 11 },
+        tabBarStyle: baseTabBar,
+        tabBarIcon: ({ color, size }) => {
+          const icons = { Home: "home", Search: "search", History: "time", Settings: "settings" };
+          return <Ionicons name={icons[route.name] || "ellipse"} size={size} color={color} />;
+        },
+      })}
+    >
+      <Tab.Screen
+        name="Home"
+        component={BookingFlowStack}
+        options={({ route }) => ({ tabBarStyle: tabBarForRoute(route) })}
+      />
+      <Tab.Screen
+        name="Search"
+        component={BookingFlowStack}
+        options={({ route }) => ({ tabBarStyle: tabBarForRoute(route) })}
+      />
+      <Tab.Screen name="History" component={HistoryScreen} />
+      <Tab.Screen name="Settings" component={SettingsScreen} />
+    </Tab.Navigator>
+  );
+}
+
+export default function App() {
+  const [fatal, setFatal] = useState(null);
+  const [fontsLoaded] = useFonts({
+    Poppins_400Regular,
+    Poppins_500Medium,
+    Poppins_600SemiBold,
+    Poppins_700Bold,
+  });
+
+  // Catch fatal errors from event handlers / async code (error boundaries miss these).
   useEffect(() => {
     const prev = global.ErrorUtils?.getGlobalHandler?.();
     global.ErrorUtils?.setGlobalHandler?.((error, isFatal) => {
       console.error("[GlobalError] isFatal:", isFatal, error);
       setFatal(error);
-      // Keep the red-box in dev; in release we swallow so the screen stays put.
       if (__DEV__ && prev) prev(error, isFatal);
     });
     return () => { if (prev) global.ErrorUtils?.setGlobalHandler?.(prev); };
@@ -112,44 +189,32 @@ export default function App() {
     return <ErrorScreen error={fatal} onReset={() => setFatal(null)} />;
   }
 
+  // Show the app only once the Poppins fonts are ready.
+  if (!fontsLoaded) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.screen }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
   return (
     <ErrorBoundary>
       <NavigationContainer>
-      <Stack.Navigator initialRouteName="Login">
-        <Stack.Screen name="Login" component={LoginScreen} options={{ title: "Sign In" }} />
-        <Stack.Screen
-          name="NearbyTaxis"
-          component={NearbyTaxisScreen}
-          options={({ navigation }) => ({
-            title: "Taxis near me",
-            headerRight: () => <HeaderButtons navigation={navigation} />,
-          })}
-        />
-        <Stack.Screen
-          name="Booking"
-          component={BookingScreen}
-          options={{ title: "Book a Taxi" }}
-        />
-        <Stack.Screen
-          name="Trip"
-          component={TripScreen}
-          options={{ title: "Your Trip", headerShown: false }}
-        />
-        <Stack.Screen
-          name="DriverHome"
-          component={DriverHomeScreen}
-          options={({ navigation }) => ({
-            title: "Driver Dashboard",
-            headerRight: () => <HeaderButtons navigation={navigation} />,
-          })}
-        />
-        <Stack.Screen
-          name="History"
-          component={HistoryScreen}
-          options={{ title: "Trip History" }}
-        />
-      </Stack.Navigator>
-    </NavigationContainer>
+        <RootStack.Navigator initialRouteName="Login" screenOptions={navyHeader}>
+          <RootStack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+          <RootStack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
+          <RootStack.Screen
+            name="DriverHome"
+            component={DriverHomeScreen}
+            options={({ navigation }) => ({
+              title: "Driver Dashboard",
+              headerRight: () => <DriverHeaderButtons navigation={navigation} />,
+            })}
+          />
+          <RootStack.Screen name="History" component={HistoryScreen} options={{ title: "Trip History" }} />
+        </RootStack.Navigator>
+      </NavigationContainer>
     </ErrorBoundary>
   );
 }

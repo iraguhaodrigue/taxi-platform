@@ -1,15 +1,17 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  View, Text, TextInput, Button, StyleSheet, Alert,
+  View, Text, TextInput, StyleSheet, Alert,
   ScrollView, Switch, ActivityIndicator,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import * as Location from "expo-location";
+import PillButton from "../components/PillButton";
 import {
   createVehicle, getMyVehicles, createSubscription, setVehicleAvailability,
   getDriverBookings, updateBookingStatus, updateVehicleLocation,
 } from "../api/client";
 import { startBackgroundLocation, stopBackgroundLocation } from "../api/tracking";
+import { colors, radius, spacing, font, cardShadow } from "../theme";
 
 const PLANS = [
   { key: "weekly", label: "Weekly — 5,000 RWF / 7 days" },
@@ -225,28 +227,37 @@ export default function DriverHomeScreen({ navigation }) {
     }
   }
 
-  if (loading) return <ActivityIndicator style={{ flex: 1 }} size="large" />;
+  if (loading) {
+    return (
+      <View style={styles.loader}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Driver Dashboard</Text>
-
+    <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
       {/* ── Active trip banner ── */}
       {tracking && (
         <View style={styles.trackingBanner}>
           <Text style={styles.trackingText}>
             ● Sharing location — Booking #{activeBookingId}
           </Text>
-          <Button title="Stop GPS" onPress={handleStopTracking} color="#c00" />
+          <PillButton
+            title="Stop GPS"
+            onPress={handleStopTracking}
+            color={colors.danger}
+            style={styles.smallBtn}
+          />
         </View>
       )}
 
       {/* ── Incoming bookings ── */}
       <View style={styles.sectionRow}>
         <Text style={styles.section}>Incoming Bookings</Text>
-        <Button title="Refresh" onPress={loadBookings} />
+        <PillButton title="Refresh" onPress={loadBookings} style={styles.smallBtn} />
       </View>
-      {bookingsLoading && <ActivityIndicator style={{ marginBottom: 8 }} />}
+      {bookingsLoading && <ActivityIndicator style={{ marginBottom: 8 }} color={colors.primary} />}
       {!bookingsLoading && driverBookings.filter(
         (b) => ["requested", "accepted", "ongoing"].includes(b.status)
       ).length === 0 && (
@@ -267,31 +278,30 @@ export default function DriverHomeScreen({ navigation }) {
             </Text>
             <View style={styles.bookingActions}>
               {b.status === "requested" && (
-                updatingId === b.id ? <ActivityIndicator /> : (
-                  <Button
-                    title="Accept & Start GPS"
-                    onPress={() => handleAcceptAndTrack(b.id)}
-                    color="#2a7"
-                  />
-                )
+                <PillButton
+                  title="Accept & Start GPS"
+                  onPress={() => handleAcceptAndTrack(b.id)}
+                  loading={updatingId === b.id}
+                  color={colors.success}
+                  style={styles.smallBtn}
+                />
               )}
               {b.status === "accepted" && (
-                updatingId === b.id ? <ActivityIndicator /> : (
-                  <Button
-                    title="Mark In Progress"
-                    onPress={() => handleStatusUpdate(b.id, "ongoing")}
-                    color="#29a"
-                  />
-                )
+                <PillButton
+                  title="Mark In Progress"
+                  onPress={() => handleStatusUpdate(b.id, "ongoing")}
+                  loading={updatingId === b.id}
+                  style={styles.smallBtn}
+                />
               )}
               {b.status === "ongoing" && (
-                updatingId === b.id ? <ActivityIndicator /> : (
-                  <Button
-                    title="Complete Trip"
-                    onPress={() => handleStatusUpdate(b.id, "completed")}
-                    color="#555"
-                  />
-                )
+                <PillButton
+                  title="Complete Trip"
+                  onPress={() => handleStatusUpdate(b.id, "completed")}
+                  loading={updatingId === b.id}
+                  color={colors.textMuted}
+                  style={styles.smallBtn}
+                />
               )}
             </View>
           </View>
@@ -302,6 +312,7 @@ export default function DriverHomeScreen({ navigation }) {
       <TextInput
         style={styles.input}
         placeholder="Plate number (e.g. RAC 123A)"
+        placeholderTextColor={colors.textMuted}
         value={plate}
         onChangeText={setPlate}
         autoCapitalize="characters"
@@ -309,21 +320,19 @@ export default function DriverHomeScreen({ navigation }) {
       <TextInput
         style={styles.input}
         placeholder="Driver name"
+        placeholderTextColor={colors.textMuted}
         value={driverName}
         onChangeText={setDriverName}
       />
       <TextInput
         style={styles.input}
         placeholder="Driver phone"
+        placeholderTextColor={colors.textMuted}
         value={driverPhone}
         onChangeText={setDriverPhone}
         keyboardType="phone-pad"
       />
-      {registering ? (
-        <ActivityIndicator />
-      ) : (
-        <Button title="Register Vehicle" onPress={handleRegister} />
-      )}
+      <PillButton title="Register Vehicle" onPress={handleRegister} loading={registering} />
 
       {/* ── My vehicles ── */}
       {vehicles.length > 0 && (
@@ -332,7 +341,7 @@ export default function DriverHomeScreen({ navigation }) {
           {vehicles.map((v) => (
             <View key={v.id} style={styles.card}>
               <Text style={styles.plate}>{v.plate_number}</Text>
-              <Text style={{ color: v.is_listed ? "#2a7" : "#888" }}>
+              <Text style={{ fontFamily: font.familyMedium, color: v.is_listed ? colors.success : colors.textMuted }}>
                 {v.is_listed ? "Listed ✓" : "Not listed — buy a subscription"}
               </Text>
             </View>
@@ -344,36 +353,42 @@ export default function DriverHomeScreen({ navigation }) {
             Subscribing lists {selectedVehicle?.plate_number} on the platform immediately.
           </Text>
           {PLANS.map((p) => (
-            <Button
+            <PillButton
               key={p.key}
               title={`${selectedPlan === p.key ? "✓ " : ""}${p.label}`}
               onPress={() => setSelectedPlan(p.key)}
-              color={selectedPlan === p.key ? "#2a7" : "#aaa"}
+              color={selectedPlan === p.key ? colors.primary : colors.border}
+              textColor={selectedPlan === p.key ? colors.white : colors.text}
+              style={{ marginBottom: spacing.sm }}
             />
           ))}
-          <View style={{ marginTop: 8 }}>
-            {subscribing ? (
-              <ActivityIndicator />
-            ) : (
-              <Button
-                title={`Subscribe (${selectedPlan})`}
-                onPress={handleSubscribe}
-                color="#2a7"
-              />
-            )}
+          <View style={{ marginTop: spacing.sm }}>
+            <PillButton
+              title={`Subscribe (${selectedPlan})`}
+              onPress={handleSubscribe}
+              loading={subscribing}
+              color={colors.success}
+            />
           </View>
 
           {/* ── Availability toggle ── */}
           <Text style={styles.section}>Availability</Text>
-          <View style={styles.row}>
-            <Text style={styles.availLabel}>
-              {available ? "Available for bookings" : "Offline"}
-            </Text>
-            {togglingAvail ? (
-              <ActivityIndicator />
-            ) : (
-              <Switch value={available} onValueChange={handleToggleAvailability} />
-            )}
+          <View style={styles.card}>
+            <View style={styles.row}>
+              <Text style={styles.availLabel}>
+                {available ? "Available for bookings" : "Offline"}
+              </Text>
+              {togglingAvail ? (
+                <ActivityIndicator color={colors.primary} />
+              ) : (
+                <Switch
+                  value={available}
+                  onValueChange={handleToggleAvailability}
+                  trackColor={{ true: colors.primary, false: colors.border }}
+                  thumbColor={colors.white}
+                />
+              )}
+            </View>
           </View>
 
           {/* ── My location ── */}
@@ -382,17 +397,16 @@ export default function DriverHomeScreen({ navigation }) {
             Update your GPS so passengers can find you.
             {available ? " Auto-refreshing every 30 s while available." : ""}
           </Text>
-          {locUpdating ? (
-            <ActivityIndicator />
-          ) : (
-            <Button title="Update my location" onPress={() => handleUpdateLocation(false)} />
-          )}
+          <PillButton
+            title="Update my location"
+            onPress={() => handleUpdateLocation(false)}
+            loading={locUpdating}
+          />
           {lastLocUpdate && (
             <Text style={styles.locTime}>
               Location updated {lastLocUpdate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
             </Text>
           )}
-
         </>
       )}
     </ScrollView>
@@ -400,66 +414,69 @@ export default function DriverHomeScreen({ navigation }) {
 }
 
 function statusStyle(status) {
-  const colors = {
+  const palette = {
     requested: { color: "#b45309", backgroundColor: "#fef3c7" },
     accepted: { color: "#1d4ed8", backgroundColor: "#dbeafe" },
     ongoing: { color: "#166534", backgroundColor: "#dcfce7" },
     completed: { color: "#555", backgroundColor: "#f3f4f6" },
     cancelled: { color: "#991b1b", backgroundColor: "#fee2e2" },
   };
-  return colors[status] || {};
+  return palette[status] || {};
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 24, flexGrow: 1 },
-  title: { fontSize: 26, fontWeight: "bold", marginBottom: 20 },
-  section: { fontSize: 17, fontWeight: "700", marginTop: 24, marginBottom: 8 },
-  hint: { color: "#777", marginBottom: 8, fontSize: 13 },
+  screen: { flex: 1, backgroundColor: colors.screen },
+  loader: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.screen },
+  container: { padding: spacing.lg, flexGrow: 1 },
+  section: { fontFamily: font.family, fontSize: 17, color: colors.text, marginTop: spacing.xl, marginBottom: spacing.sm },
+  hint: { fontFamily: font.familyRegular, color: colors.textMuted, marginBottom: spacing.sm, fontSize: 13 },
   input: {
-    borderWidth: 1, borderColor: "#ccc", borderRadius: 8,
-    padding: 12, marginBottom: 12,
+    borderWidth: 1, borderColor: colors.border, borderRadius: radius.input,
+    padding: 12, marginBottom: spacing.md, backgroundColor: colors.card,
+    fontFamily: font.familyRegular, fontSize: 15, color: colors.text,
   },
   card: {
-    borderWidth: 1, borderColor: "#eee", borderRadius: 10,
-    padding: 14, marginBottom: 8,
+    backgroundColor: colors.card, borderRadius: radius.card,
+    padding: spacing.lg, marginBottom: spacing.sm, ...cardShadow,
   },
-  plate: { fontSize: 17, fontWeight: "bold" },
+  plate: { fontFamily: font.familyBold, fontSize: 17, color: colors.text },
   row: {
     flexDirection: "row", alignItems: "center",
-    justifyContent: "space-between", paddingVertical: 8,
+    justifyContent: "space-between",
   },
-  availLabel: { fontSize: 16 },
-  locTime: { color: "#2a7", fontSize: 13, marginTop: 8 },
+  availLabel: { fontFamily: font.familyMedium, fontSize: 16, color: colors.text },
+  locTime: { fontFamily: font.familyMedium, color: colors.primary, fontSize: 13, marginTop: spacing.sm },
   sectionRow: {
     flexDirection: "row", alignItems: "center",
-    justifyContent: "space-between", marginTop: 24, marginBottom: 8,
+    justifyContent: "space-between", marginTop: spacing.xl, marginBottom: spacing.sm,
   },
+  smallBtn: { paddingVertical: 10, paddingHorizontal: 18 },
   bookingCard: {
-    borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 10,
-    padding: 14, marginBottom: 10, backgroundColor: "#fafafa",
+    backgroundColor: colors.card, borderRadius: radius.card,
+    padding: spacing.lg, marginBottom: spacing.md, ...cardShadow,
   },
   bookingHeader: {
     flexDirection: "row", justifyContent: "space-between",
     alignItems: "center", marginBottom: 4,
   },
-  bookingId: { fontWeight: "700", fontSize: 15 },
+  bookingId: { fontFamily: font.familyBold, fontSize: 15, color: colors.text },
   statusBadge: {
-    fontSize: 12, fontWeight: "600", paddingHorizontal: 8,
+    fontFamily: font.familyMedium, fontSize: 12, paddingHorizontal: 8,
     paddingVertical: 2, borderRadius: 12, overflow: "hidden",
     textTransform: "capitalize",
   },
-  bookingDetail: { color: "#555", fontSize: 13, marginBottom: 10 },
+  bookingDetail: { fontFamily: font.familyRegular, color: colors.textMuted, fontSize: 13, marginBottom: spacing.md },
   bookingActions: { flexDirection: "row", gap: 8 },
   trackingBanner: {
     backgroundColor: "#dcfce7",
     borderWidth: 1,
     borderColor: "#86efac",
-    borderRadius: 10,
+    borderRadius: radius.card,
     padding: 12,
-    marginBottom: 16,
+    marginBottom: spacing.lg,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  trackingText: { color: "#166534", fontWeight: "600", fontSize: 14, flex: 1, marginRight: 8 },
+  trackingText: { fontFamily: font.familyMedium, color: "#166534", fontSize: 14, flex: 1, marginRight: 8 },
 });

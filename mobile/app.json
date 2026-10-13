@@ -1,4 +1,4 @@
-﻿{
+{
   "expo": {
     "name": "Taxi Booking",
     "slug": "taxi-booking",
@@ -24,7 +24,8 @@
             "usesCleartextTraffic": true
           }
         }
-      ]
+      ],
+      "expo-font"
     ],
     "android": {
       "permissions": [

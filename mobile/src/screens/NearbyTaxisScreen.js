@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
 import {
   View, Text, FlatList, StyleSheet, ActivityIndicator,
-  TouchableOpacity, Button,
 } from "react-native";
 import * as Location from "expo-location";
+import PillButton from "../components/PillButton";
 import { getNearbyTaxis } from "../api/client";
+import { colors, radius, spacing, font, cardShadow } from "../theme";
 
 export default function NearbyTaxisScreen({ navigation }) {
   const [taxis, setTaxis] = useState([]);
@@ -51,23 +52,31 @@ export default function NearbyTaxisScreen({ navigation }) {
     }
   }
 
-  if (loading) return <ActivityIndicator style={{ flex: 1 }} size="large" />;
+  if (loading) {
+    return (
+      <View style={styles.centerScreen}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   if (permissionDenied) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.emptyTitle}>Location permission required</Text>
-        <Text style={styles.emptyBody}>
-          This app needs your location to find taxis near you.{"\n"}
-          Go to Settings → Apps → Taxi Booking → Permissions and allow Location.
-        </Text>
+      <View style={styles.centerScreen}>
+        <View style={styles.card}>
+          <Text style={styles.emptyTitle}>Location permission required</Text>
+          <Text style={styles.emptyBody}>
+            This app needs your location to find taxis near you.{"\n"}
+            Go to Settings → Apps → Taxi Booking → Permissions and allow Location.
+          </Text>
+        </View>
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.center}>
+      <View style={styles.centerScreen}>
         <Text style={styles.errorText}>{error}</Text>
       </View>
     );
@@ -77,23 +86,25 @@ export default function NearbyTaxisScreen({ navigation }) {
 
   return (
     <FlatList
+      style={styles.screen}
       contentContainerStyle={styles.list}
       data={taxis}
       keyExtractor={(item) => String(item.id)}
       ListHeaderComponent={
-        searching ? <ActivityIndicator style={{ marginBottom: 12 }} /> : null
+        <View>
+          <Text style={styles.heading}>Best deals near you</Text>
+          {searching && <ActivityIndicator style={{ marginBottom: 12 }} color={colors.primary} />}
+        </View>
       }
       ListEmptyComponent={
         isEmpty ? (
-          <View style={styles.center}>
+          <View style={styles.card}>
             <Text style={styles.emptyTitle}>No taxis within {radiusKm} km of you</Text>
             <Text style={styles.emptyBody}>
               There are no available taxis nearby right now.
             </Text>
             {radiusKm < 20 && (
-              <View style={{ marginTop: 16 }}>
-                <Button title="Search wider (20 km)" onPress={searchWider} />
-              </View>
+              <PillButton title="Search wider (20 km)" onPress={searchWider} style={{ marginTop: spacing.lg }} />
             )}
             {radiusKm >= 20 && (
               <Text style={styles.emptyBody}>
@@ -104,41 +115,71 @@ export default function NearbyTaxisScreen({ navigation }) {
         ) : null
       }
       renderItem={({ item }) => (
-        <TouchableOpacity
-          style={styles.card}
-          onPress={() => navigation.navigate("Booking", { taxi: item, userLocation })}
-        >
-          <Text style={styles.plate}>{item.plate_number}</Text>
-          <Text>{item.driver_name} · {item.driver_phone}</Text>
-          <Text style={styles.distance}>{item.distance_km} km away</Text>
-          <Text style={styles.tap}>Tap to book →</Text>
-        </TouchableOpacity>
+        <View style={styles.card}>
+          <View style={styles.cardTop}>
+            <Text style={styles.plate}>{item.plate_number}</Text>
+            <View style={styles.rating}>
+              <Text style={styles.star}>★</Text>
+              <Text style={styles.ratingText}>New</Text>
+            </View>
+          </View>
+          <Text style={styles.driver}>{item.driver_name} · {item.driver_phone}</Text>
+          <View style={styles.cardBottom}>
+            <Text style={styles.distance}>{item.distance_km} km away</Text>
+            <PillButton
+              title="Book"
+              onPress={() => navigation.navigate("Booking", { taxi: item, userLocation })}
+              style={styles.bookBtn}
+            />
+          </View>
+        </View>
       )}
     />
   );
 }
 
 const styles = StyleSheet.create({
-  list: { padding: 16, flexGrow: 1 },
-  card: {
-    borderWidth: 1, borderColor: "#eee", borderRadius: 10,
-    padding: 16, marginBottom: 12,
-  },
-  plate: { fontSize: 18, fontWeight: "bold" },
-  distance: { marginTop: 4, color: "#2a7" },
-  tap: { marginTop: 6, color: "#555", fontSize: 12 },
-  center: {
+  screen: { flex: 1, backgroundColor: colors.screen },
+  list: { padding: spacing.lg, flexGrow: 1 },
+  centerScreen: {
     flex: 1, alignItems: "center", justifyContent: "center",
-    paddingHorizontal: 32, paddingTop: 60,
+    backgroundColor: colors.screen, paddingHorizontal: spacing.xl,
   },
+  heading: {
+    fontFamily: font.family, fontSize: 20, color: colors.text,
+    marginBottom: spacing.md,
+  },
+  card: {
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    ...cardShadow,
+  },
+  cardTop: {
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+  },
+  plate: { fontFamily: font.familyBold, fontSize: 18, color: colors.text },
+  rating: { flexDirection: "row", alignItems: "center" },
+  star: { color: colors.star, fontSize: 16, marginRight: 4 },
+  ratingText: { fontFamily: font.familyMedium, fontSize: 13, color: colors.textMuted },
+  driver: { fontFamily: font.familyRegular, fontSize: 13, color: colors.textMuted, marginTop: 4 },
+  cardBottom: {
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+    marginTop: spacing.md,
+  },
+  distance: { fontFamily: font.familyMedium, fontSize: 14, color: colors.primary },
+  bookBtn: { paddingVertical: 10, paddingHorizontal: 28 },
   emptyTitle: {
-    fontSize: 17, fontWeight: "600", color: "#333",
-    textAlign: "center", marginBottom: 8,
+    fontFamily: font.family, fontSize: 17, color: colors.text,
+    textAlign: "center", marginBottom: spacing.sm,
   },
   emptyBody: {
-    fontSize: 14, color: "#777", textAlign: "center", lineHeight: 20,
+    fontFamily: font.familyRegular, fontSize: 14, color: colors.textMuted,
+    textAlign: "center", lineHeight: 20,
   },
   errorText: {
-    fontSize: 15, color: "#c00", textAlign: "center", paddingHorizontal: 24,
+    fontFamily: font.familyRegular, fontSize: 15, color: colors.danger,
+    textAlign: "center", paddingHorizontal: 24,
   },
 });

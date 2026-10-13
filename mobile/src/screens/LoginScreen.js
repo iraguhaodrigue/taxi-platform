@@ -1,19 +1,23 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, Button, StyleSheet, Alert } from "react-native";
+import { View, Text, TextInput, StyleSheet, Alert } from "react-native";
+import PillButton from "../components/PillButton";
 import { login, getMe } from "../api/client";
+import { colors, radius, spacing, font, cardShadow } from "../theme";
 
 export default function LoginScreen({ navigation }) {
   const [phone, setPhone] = useState("0780000003");
   const [password, setPassword] = useState("pass123");
+  const [loading, setLoading] = useState(false);
 
   async function handleLogin() {
+    setLoading(true);
     try {
       await login(phone, password);
       const me = await getMe();
       if (me.role === "driver") {
         navigation.replace("DriverHome");
       } else {
-        navigation.replace("NearbyTaxis");
+        navigation.replace("Main");
       }
     } catch (e) {
       if (e.response) {
@@ -24,33 +28,81 @@ export default function LoginScreen({ navigation }) {
       } else {
         Alert.alert("Login failed", `Network error: ${e.message}`);
       }
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Taxi Booking</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Phone"
-        value={phone}
-        onChangeText={setPhone}
-        keyboardType="phone-pad"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
-      <Button title="Login" onPress={handleLogin} />
+    <View style={styles.screen}>
+      <View style={styles.brand}>
+        <Text style={styles.brandMark}>🚕</Text>
+        <Text style={styles.brandName}>Taxi Booking</Text>
+        <Text style={styles.brandTag}>Your ride, one tap away</Text>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.label}>Phone</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Phone"
+          placeholderTextColor={colors.textMuted}
+          value={phone}
+          onChangeText={setPhone}
+          keyboardType="phone-pad"
+        />
+        <Text style={styles.label}>Password</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Password"
+          placeholderTextColor={colors.textMuted}
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+        />
+        <PillButton
+          title="Sign In"
+          onPress={handleLogin}
+          loading={loading}
+          style={{ marginTop: spacing.md }}
+        />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", padding: 24 },
-  title: { fontSize: 28, fontWeight: "bold", marginBottom: 24, textAlign: "center" },
-  input: { borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 12, marginBottom: 12 },
+  screen: {
+    flex: 1,
+    justifyContent: "center",
+    padding: spacing.xl,
+    backgroundColor: colors.screen,
+  },
+  brand: { alignItems: "center", marginBottom: spacing.xl },
+  brandMark: { fontSize: 56, marginBottom: spacing.sm },
+  brandName: { fontFamily: font.family, fontSize: 28, color: colors.header },
+  brandTag: { fontFamily: font.familyRegular, fontSize: 14, color: colors.textMuted, marginTop: 2 },
+  card: {
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    padding: spacing.xl,
+    ...cardShadow,
+  },
+  label: {
+    fontFamily: font.familyMedium,
+    fontSize: 13,
+    color: colors.textMuted,
+    marginBottom: spacing.xs,
+    marginTop: spacing.sm,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.input,
+    padding: 12,
+    fontFamily: font.familyRegular,
+    fontSize: 15,
+    color: colors.text,
+    backgroundColor: colors.white,
+  },
 });

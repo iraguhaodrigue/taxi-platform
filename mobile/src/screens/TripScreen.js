@@ -6,6 +6,7 @@ import {
 import OsmMap from "../components/OsmMap";
 import { listenToDriver } from "../api/tracking";
 import { getMyBookings, submitRating } from "../api/client";
+import { colors, radius, font } from "../theme";
 
 const DONE_STATUSES = ["completed", "cancelled"];
 const KIGALI = { latitude: -1.9441, longitude: 30.0619 };
@@ -124,17 +125,17 @@ export default function TripScreen({ route, navigation }) {
   if (!booking || !taxi) {
     return (
       <View style={[styles.container, { padding: 24, justifyContent: "center" }]}>
-        <Text style={{ fontSize: 18, fontWeight: "bold", marginBottom: 8 }}>
+        <Text style={{ fontFamily: font.family, fontSize: 18, color: colors.text, marginBottom: 8 }}>
           Trip details unavailable
         </Text>
-        <Text style={{ color: "#666", marginBottom: 20 }}>
+        <Text style={{ fontFamily: font.familyRegular, color: colors.textMuted, marginBottom: 20 }}>
           This trip is missing its booking or taxi info. Go back and try again.
         </Text>
         <TouchableOpacity
           onPress={() => navigation.navigate("NearbyTaxis")}
-          style={{ backgroundColor: "#2a7", borderRadius: 10, paddingVertical: 14, alignItems: "center" }}
+          style={{ backgroundColor: colors.primary, borderRadius: radius.button, paddingVertical: 14, alignItems: "center" }}
         >
-          <Text style={{ color: "#fff", fontWeight: "700" }}>Back to taxis</Text>
+          <Text style={{ fontFamily: font.family, color: colors.white }}>Back to taxis</Text>
         </TouchableOpacity>
       </View>
     );
@@ -248,18 +249,18 @@ export default function TripScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, backgroundColor: colors.screen },
 
   statusBar: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.card,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+    borderBottomColor: colors.border,
   },
   statusRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  statusValue: { fontSize: 16, fontWeight: "bold" },
-  bookingId: { color: "#aaa", fontSize: 12, marginTop: 2 },
+  statusValue: { fontFamily: font.family, fontSize: 16 },
+  bookingId: { fontFamily: font.familyRegular, color: colors.textMuted, fontSize: 12, marginTop: 2 },
 
   wsPill: {
     paddingHorizontal: 8, paddingVertical: 2,
@@ -267,18 +268,18 @@ const styles = StyleSheet.create({
   },
   wsLive:       { backgroundColor: "#dcfce7" },
   wsConnecting: { backgroundColor: "#fef3c7" },
-  wsText: { fontSize: 11, fontWeight: "600" },
+  wsText: { fontFamily: font.familyMedium, fontSize: 11 },
 
   map: { flex: 1 },
 
   footer: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.card,
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: "#eee",
+    borderTopColor: colors.border,
   },
-  footerText: { fontSize: 16, fontWeight: "500" },
-  fare: { color: "#2a7", fontWeight: "bold", marginTop: 4, fontSize: 16 },
+  footerText: { fontFamily: font.familyMedium, fontSize: 16, color: colors.text },
+  fare: { fontFamily: font.familyBold, color: colors.primary, marginTop: 4, fontSize: 16 },
 
   modalBackdrop: {
     flex: 1,
@@ -286,40 +287,42 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalCard: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.card,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 24,
     paddingBottom: 32,
   },
-  modalTitle: { fontSize: 20, fontWeight: "bold", textAlign: "center" },
-  modalSub: { color: "#777", textAlign: "center", marginTop: 2, marginBottom: 16 },
+  modalTitle: { fontFamily: font.family, fontSize: 20, color: colors.text, textAlign: "center" },
+  modalSub: { fontFamily: font.familyRegular, color: colors.textMuted, textAlign: "center", marginTop: 2, marginBottom: 16 },
   starsRow: {
     flexDirection: "row",
     justifyContent: "center",
     marginBottom: 16,
   },
   star: { fontSize: 44, marginHorizontal: 4 },
-  starOn: { color: "#f5a623" },
-  starOff: { color: "#ccc" },
+  starOn: { color: colors.star },
+  starOff: { color: colors.border },
   commentBox: {
     borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 10,
+    borderColor: colors.border,
+    borderRadius: radius.input,
     padding: 12,
     minHeight: 70,
     textAlignVertical: "top",
+    fontFamily: font.familyRegular,
     fontSize: 15,
+    color: colors.text,
     marginBottom: 16,
   },
   modalActions: { gap: 10 },
   submitBtn: {
-    backgroundColor: "#2a7",
-    borderRadius: 10,
+    backgroundColor: colors.primary,
+    borderRadius: radius.button,
     paddingVertical: 14,
     alignItems: "center",
   },
-  submitBtnText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  submitBtnText: { fontFamily: font.family, color: colors.white, fontSize: 16 },
   skipBtn: { paddingVertical: 10, alignItems: "center" },
-  skipBtnText: { color: "#888", fontSize: 15 },
+  skipBtnText: { fontFamily: font.familyRegular, color: colors.textMuted, fontSize: 15 },
 });

@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
-  View, Text, TextInput, Button, StyleSheet, Alert,
+  View, Text, TextInput, StyleSheet, Alert,
   ActivityIndicator, ScrollView, TouchableOpacity,
 } from "react-native";
 import OsmMap from "../components/OsmMap";
+import PillButton from "../components/PillButton";
 import { estimateFare, createBooking, geocodeSearch, getMyBookings } from "../api/client";
+import { colors, radius, spacing, font, cardShadow } from "../theme";
 
 const KIGALI = { lat: -1.9441, lng: 30.0619 };
 
@@ -193,7 +195,7 @@ export default function BookingScreen({ route, navigation }) {
         <Text style={styles.sub}>
           No taxi was passed to this screen. Go back and choose a taxi again.
         </Text>
-        <Button title="Go back" onPress={() => navigation.goBack()} />
+        <PillButton title="Go back" onPress={() => navigation.goBack()} style={{ marginTop: spacing.lg }} />
       </View>
     );
   }
@@ -236,7 +238,7 @@ export default function BookingScreen({ route, navigation }) {
           <Text style={styles.label}>Est. fare</Text>
           <Text style={[styles.value, styles.fare]}>{booking.estimated_fare} RWF</Text>
         </View>
-        <Button
+        <PillButton
           title="Track Trip on Map"
           onPress={() => navigation.replace("Trip", { booking, taxi })}
         />
@@ -323,14 +325,14 @@ export default function BookingScreen({ route, navigation }) {
 
         {/* Estimate button */}
         <View style={styles.buttonRow}>
-          <Button
+          <PillButton
             title="Get Fare Estimate"
             onPress={handleEstimate}
             disabled={!destination}
           />
         </View>
 
-        {estimating && <ActivityIndicator style={{ marginTop: 16 }} />}
+        {estimating && <ActivityIndicator style={{ marginTop: 16 }} color={colors.primary} />}
 
         {estimate && (
           <View style={styles.card}>
@@ -345,11 +347,12 @@ export default function BookingScreen({ route, navigation }) {
 
         {estimate && (
           <View style={styles.buttonRow}>
-            {confirming ? (
-              <ActivityIndicator />
-            ) : (
-              <Button title="Confirm Booking" onPress={handleConfirm} color="#2a7" />
-            )}
+            <PillButton
+              title="Confirm Booking"
+              onPress={handleConfirm}
+              loading={confirming}
+              color={colors.success}
+            />
           </View>
         )}
       </ScrollView>
@@ -358,11 +361,11 @@ export default function BookingScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: "#fff" },
-  scroll: { padding: 20, paddingBottom: 40 },
-  container: { flex: 1, padding: 24 },
-  title: { fontSize: 22, fontWeight: "bold", marginBottom: 2 },
-  sub: { color: "#555", marginBottom: 18, fontSize: 14 },
+  flex: { flex: 1, backgroundColor: colors.screen },
+  scroll: { padding: spacing.lg, paddingBottom: 40 },
+  container: { flex: 1, padding: spacing.xl, backgroundColor: colors.screen },
+  title: { fontFamily: font.family, fontSize: 22, color: colors.text, marginBottom: 2 },
+  sub: { fontFamily: font.familyRegular, color: colors.textMuted, marginBottom: 18, fontSize: 14 },
 
   locationRow: {
     flexDirection: "row",
@@ -376,46 +379,49 @@ const styles = StyleSheet.create({
     marginRight: 10,
     flexShrink: 0,
   },
-  locationLabel: { fontSize: 15, color: "#444" },
+  locationLabel: { fontFamily: font.familyRegular, fontSize: 15, color: colors.text },
   searchInput: {
     flex: 1,
     borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    padding: 10,
+    borderColor: colors.border,
+    borderRadius: radius.input,
+    padding: 12,
+    fontFamily: font.familyRegular,
     fontSize: 15,
+    color: colors.text,
+    backgroundColor: colors.card,
   },
 
   suggestions: {
     borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
-    backgroundColor: "#fff",
+    borderColor: colors.border,
+    borderRadius: radius.input,
+    backgroundColor: colors.card,
     marginBottom: 10,
     overflow: "hidden",
   },
   suggestionItem: { paddingHorizontal: 14, paddingVertical: 11 },
-  suggestionBorder: { borderBottomWidth: 1, borderBottomColor: "#f0f0f0" },
-  suggestionText: { fontSize: 14, color: "#333" },
+  suggestionBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
+  suggestionText: { fontFamily: font.familyRegular, fontSize: 14, color: colors.text },
 
-  hint: { fontSize: 13, color: "#888", marginBottom: 6 },
-  map: { height: 220, borderRadius: 10, marginBottom: 14, overflow: "hidden" },
+  hint: { fontFamily: font.familyRegular, fontSize: 13, color: colors.textMuted, marginBottom: 6 },
+  map: { height: 220, borderRadius: radius.card, marginBottom: 14, overflow: "hidden", backgroundColor: "#e8e8e8" },
 
-  buttonRow: { marginTop: 4, marginBottom: 4 },
+  buttonRow: { marginTop: spacing.sm, marginBottom: spacing.xs },
 
   card: {
-    borderWidth: 1,
-    borderColor: "#eee",
-    borderRadius: 10,
-    padding: 16,
-    marginVertical: 12,
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    padding: spacing.lg,
+    marginVertical: spacing.md,
+    ...cardShadow,
   },
-  label: { color: "#888", fontSize: 12, marginTop: 8 },
-  value: { fontSize: 16, fontWeight: "500" },
-  fare: { fontSize: 20, color: "#2a7", fontWeight: "bold" },
+  label: { fontFamily: font.familyRegular, color: colors.textMuted, fontSize: 12, marginTop: 8 },
+  value: { fontFamily: font.familyMedium, fontSize: 16, color: colors.text },
+  fare: { fontFamily: font.familyBold, fontSize: 20, color: colors.primary },
   statusBanner: {
-    borderWidth: 2, borderRadius: 10, padding: 14,
-    marginBottom: 12, alignItems: "center",
+    borderWidth: 2, borderRadius: radius.card, padding: spacing.lg,
+    marginBottom: spacing.md, alignItems: "center", backgroundColor: colors.card,
   },
-  statusText: { fontSize: 16, fontWeight: "600", textAlign: "center" },
+  statusText: { fontFamily: font.family, fontSize: 16, textAlign: "center" },
 });
