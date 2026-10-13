@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, StyleSheet, Alert } from "react-native";
+import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity } from "react-native";
 import PillButton from "../components/PillButton";
 import { login, getMe } from "../api/client";
 import { colors, radius, spacing, font, cardShadow } from "../theme";
@@ -67,6 +67,10 @@ export default function LoginScreen({ navigation }) {
           style={{ marginTop: spacing.md }}
         />
       </View>
+
+      <TouchableOpacity onPress={() => navigation.navigate("Register")} style={styles.linkWrap}>
+        <Text style={styles.link}>Create account</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -95,6 +99,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
     marginTop: spacing.sm,
   },
+  linkWrap: { marginTop: spacing.lg, alignItems: "center" },
+  link: { fontFamily: font.familyMedium, color: colors.primary, fontSize: 15 },
   input: {
     borderWidth: 1,
     borderColor: colors.border,

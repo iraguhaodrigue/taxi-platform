@@ -1,14 +1,14 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View, Text, TextInput, StyleSheet, Alert,
-  ScrollView, Switch, ActivityIndicator,
+  ScrollView, Switch, ActivityIndicator, TouchableOpacity,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import * as Location from "expo-location";
 import PillButton from "../components/PillButton";
 import {
   createVehicle, getMyVehicles, createSubscription, setVehicleAvailability,
-  getDriverBookings, updateBookingStatus, updateVehicleLocation,
+  getDriverBookings, updateBookingStatus, updateVehicleLocation, getToken,
 } from "../api/client";
 import { startBackgroundLocation, stopBackgroundLocation } from "../api/tracking";
 import { colors, radius, spacing, font, cardShadow } from "../theme";
@@ -17,6 +17,12 @@ const PLANS = [
   { key: "weekly", label: "Weekly — 5,000 RWF / 7 days" },
   { key: "monthly", label: "Monthly — 15,000 RWF / 30 days" },
   { key: "annual", label: "Annual — 120,000 RWF / 1 year" },
+];
+
+const VEHICLE_TYPES = [
+  { key: "taxi", label: "Taxi" },
+  { key: "safari", label: "Safari" },
+  { key: "private_car", label: "Private car" },
 ];
 
 export default function DriverHomeScreen({ navigation }) {
@@ -28,6 +34,7 @@ export default function DriverHomeScreen({ navigation }) {
   const [plate, setPlate] = useState("");
   const [driverName, setDriverName] = useState("");
   const [driverPhone, setDriverPhone] = useState("");
+  const [newVehicleType, setNewVehicleType] = useState("taxi");
   const [registering, setRegistering] = useState(false);
 
   // Subscription
@@ -133,6 +140,8 @@ export default function DriverHomeScreen({ navigation }) {
   }
 
   async function handleUpdateLocation(silent = false) {
+    // Never fire with a stale/empty token (e.g. just after logout).
+    if (!getToken()) return;
     if (!selectedVehicle) {
       if (!silent) Alert.alert("No vehicle", "Register a vehicle first.");
       return;
@@ -183,6 +192,7 @@ export default function DriverHomeScreen({ navigation }) {
         plate_number: plate,
         driver_name: driverName,
         driver_phone: driverPhone,
+        vehicle_type: newVehicleType,
         lat: pos?.coords.latitude,
         lng: pos?.coords.longitude,
       });
@@ -332,6 +342,23 @@ export default function DriverHomeScreen({ navigation }) {
         onChangeText={setDriverPhone}
         keyboardType="phone-pad"
       />
+      <Text style={styles.hint}>Vehicle type</Text>
+      <View style={styles.typeRow}>
+        {VEHICLE_TYPES.map((t) => {
+          const active = newVehicleType === t.key;
+          return (
+            <TouchableOpacity
+              key={t.key}
+              onPress={() => setNewVehicleType(t.key)}
+              style={[styles.typePill, active ? styles.typePillActive : styles.typePillIdle]}
+            >
+              <Text style={[styles.typeText, active ? styles.typeTextActive : styles.typeTextIdle]}>
+                {t.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
       <PillButton title="Register Vehicle" onPress={handleRegister} loading={registering} />
 
       {/* ── My vehicles ── */}
@@ -451,6 +478,16 @@ const styles = StyleSheet.create({
     justifyContent: "space-between", marginTop: spacing.xl, marginBottom: spacing.sm,
   },
   smallBtn: { paddingVertical: 10, paddingHorizontal: 18 },
+  typeRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md },
+  typePill: {
+    flex: 1, borderRadius: radius.button, paddingVertical: 10,
+    alignItems: "center", borderWidth: 1,
+  },
+  typePillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  typePillIdle: { backgroundColor: colors.white, borderColor: colors.border },
+  typeText: { fontFamily: font.familyMedium, fontSize: 13 },
+  typeTextActive: { color: colors.white },
+  typeTextIdle: { color: colors.text },
   bookingCard: {
     backgroundColor: colors.card, borderRadius: radius.card,
     padding: spacing.lg, marginBottom: spacing.md, ...cardShadow,

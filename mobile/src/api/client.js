@@ -1,9 +1,11 @@
 import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // IMPORTANT: change this to your computer's IP when testing on a real phone.
 // "localhost" will NOT work from a phone, because the phone is a different device.
 // Example: const BASE_URL = "http://192.168.1.10:8000";
 const BASE_URL = "http://146.190.21.86:8000";
+const TOKEN_KEY = "AUTH_TOKEN";
 console.log("[client.js] BASE_URL:", BASE_URL);
 
 const api = axios.create({ baseURL: BASE_URL });
@@ -12,8 +14,28 @@ let token = null;
 export function setToken(t) {
   token = t;
 }
-export function logout() {
+export function getToken() {
+  return token;
+}
+
+// Load a persisted token at app start; sets it on the client if present.
+export async function loadToken() {
+  try {
+    const t = await AsyncStorage.getItem(TOKEN_KEY);
+    if (t) token = t;
+    return t;
+  } catch {
+    return null;
+  }
+}
+
+export async function logout() {
   token = null;
+  try {
+    await AsyncStorage.removeItem(TOKEN_KEY);
+  } catch {
+    // ignore storage errors
+  }
 }
 
 api.interceptors.request.use((config) => {
@@ -31,13 +53,24 @@ export async function login(phone, password) {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
   });
   setToken(res.data.access_token);
+  try {
+    await AsyncStorage.setItem(TOKEN_KEY, res.data.access_token);
+  } catch {
+    // ignore storage errors — session still works for this run
+  }
   return res.data;
 }
 
-export async function getNearbyTaxis(lat, lng, radiusKm = 5) {
-  const res = await api.get("/search/nearby", {
-    params: { lat, lng, radius_km: radiusKm },
-  });
+// Create an account, then log in to obtain a token.
+export async function register({ full_name, phone, password, role }) {
+  await api.post("/auth/register", { full_name, phone, password, role });
+  return login(phone, password);
+}
+
+export async function getNearbyTaxis(lat, lng, radiusKm = 5, vehicleType = null) {
+  const params = { lat, lng, radius_km: radiusKm };
+  if (vehicleType) params.vehicle_type = vehicleType;
+  const res = await api.get("/search/nearby", { params });
   return res.data;
 }
 

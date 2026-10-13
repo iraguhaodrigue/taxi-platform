@@ -15,13 +15,14 @@ import {
 } from "@expo-google-fonts/poppins";
 
 import LoginScreen from "./src/screens/LoginScreen";
+import RegisterScreen from "./src/screens/RegisterScreen";
 import NearbyTaxisScreen from "./src/screens/NearbyTaxisScreen";
 import BookingScreen from "./src/screens/BookingScreen";
 import TripScreen from "./src/screens/TripScreen";
 import DriverHomeScreen from "./src/screens/DriverHomeScreen";
 import HistoryScreen from "./src/screens/HistoryScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
-import { logout } from "./src/api/client";
+import { logout, loadToken, getMe } from "./src/api/client";
 import { colors, font } from "./src/theme";
 
 const RootStack = createNativeStackNavigator();
@@ -167,6 +168,7 @@ function MainTabs() {
 
 export default function App() {
   const [fatal, setFatal] = useState(null);
+  const [initialRoute, setInitialRoute] = useState(null); // null while restoring session
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
     Poppins_500Medium,
@@ -185,12 +187,30 @@ export default function App() {
     return () => { if (prev) global.ErrorUtils?.setGlobalHandler?.(prev); };
   }, []);
 
+  // Restore a persisted session: load the token, confirm it, and route straight home.
+  useEffect(() => {
+    (async () => {
+      try {
+        const t = await loadToken();
+        if (t) {
+          const me = await getMe();
+          setInitialRoute(me.role === "driver" ? "DriverHome" : "Main");
+          return;
+        }
+      } catch {
+        // token missing/expired/invalid — fall back to Login
+        await logout();
+      }
+      setInitialRoute("Login");
+    })();
+  }, []);
+
   if (fatal) {
     return <ErrorScreen error={fatal} onReset={() => setFatal(null)} />;
   }
 
-  // Show the app only once the Poppins fonts are ready.
-  if (!fontsLoaded) {
+  // Show the app only once fonts are ready and the session check has finished.
+  if (!fontsLoaded || !initialRoute) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.screen }}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -201,8 +221,9 @@ export default function App() {
   return (
     <ErrorBoundary>
       <NavigationContainer>
-        <RootStack.Navigator initialRouteName="Login" screenOptions={navyHeader}>
+        <RootStack.Navigator initialRouteName={initialRoute} screenOptions={navyHeader}>
           <RootStack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+          <RootStack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />
           <RootStack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
           <RootStack.Screen
             name="DriverHome"

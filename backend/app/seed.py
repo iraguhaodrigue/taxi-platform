@@ -49,8 +49,28 @@ def seed():
             driver_phone="0780000002",
             lat=-1.9441, lng=30.0619,
             is_available=True, is_listed=True,
+            vehicle_type="taxi",
         )
-        db.add(taxi)
+        # A safari vehicle and a private car, also near the centre, so each type shows.
+        safari = Vehicle(
+            owner_id=driver.id,
+            plate_number="RAD 456 S",
+            driver_name="John Driver",
+            driver_phone="0780000002",
+            lat=-1.9435, lng=30.0585,
+            is_available=True, is_listed=True,
+            vehicle_type="safari",
+        )
+        private_car = Vehicle(
+            owner_id=driver.id,
+            plate_number="RAD 789 P",
+            driver_name="John Driver",
+            driver_phone="0780000002",
+            lat=-1.9460, lng=30.0632,
+            is_available=True, is_listed=True,
+            vehicle_type="private_car",
+        )
+        db.add_all([taxi, safari, private_car])
         db.commit()
         db.refresh(taxi)
 

@@ -17,6 +17,9 @@ class Vehicle(Base):
     driver_name = Column(String, nullable=False)
     driver_phone = Column(String, nullable=False)
 
+    # One of: taxi, safari, private_car
+    vehicle_type = Column(String, nullable=False, default="taxi")
+
     # Where the taxi currently is. Used for the "taxi near me" search.
     lat = Column(Float, nullable=True)
     lng = Column(Float, nullable=True)

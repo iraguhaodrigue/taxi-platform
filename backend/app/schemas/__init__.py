@@ -40,6 +40,7 @@ class VehicleCreate(BaseModel):
     photo_url: Optional[str] = None
     lat: Optional[float] = None
     lng: Optional[float] = None
+    vehicle_type: str = "taxi"  # taxi, safari, private_car
 
 
 class VehicleOut(BaseModel):
@@ -52,6 +53,7 @@ class VehicleOut(BaseModel):
     lng: Optional[float] = None
     is_available: bool
     is_listed: bool
+    vehicle_type: str
 
     class Config:
         from_attributes = True
