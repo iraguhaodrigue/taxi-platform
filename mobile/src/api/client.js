@@ -135,6 +135,13 @@ export async function geocodeSearch(q) {
   return res.data; // [{ name, lat, lng }, ...]
 }
 
+export async function getDirections(fromLat, fromLng, toLat, toLng) {
+  const res = await api.get("/directions", {
+    params: { from_lat: fromLat, from_lng: fromLng, to_lat: toLat, to_lng: toLng },
+  });
+  return res.data; // { distance_km, duration_min, points: [[lat,lng], ...] }
+}
+
 export async function getMyBookings() {
   const res = await api.get("/bookings/mine");
   return res.data;

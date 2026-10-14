@@ -110,6 +110,10 @@ class BookingOut(BaseModel):
     passenger_id: int
     vehicle_id: int
     status: BookingStatus
+    pickup_lat: Optional[float] = None
+    pickup_lng: Optional[float] = None
+    destination_lat: Optional[float] = None
+    destination_lng: Optional[float] = None
     estimated_distance_km: Optional[float] = None
     estimated_time_min: Optional[float] = None
     estimated_fare: Optional[float] = None

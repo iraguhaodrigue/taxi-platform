@@ -6,9 +6,10 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import * as Location from "expo-location";
 import PillButton from "../components/PillButton";
+import OsmMap from "../components/OsmMap";
 import {
   createVehicle, getMyVehicles, createSubscription, setVehicleAvailability,
-  getDriverBookings, updateBookingStatus, updateVehicleLocation, getToken,
+  getDriverBookings, updateBookingStatus, updateVehicleLocation, getToken, getDirections,
 } from "../api/client";
 import { startBackgroundLocation, stopBackgroundLocation } from "../api/tracking";
 import { colors, radius, spacing, font, cardShadow } from "../theme";
@@ -59,10 +60,58 @@ export default function DriverHomeScreen({ navigation }) {
   const [bookingsLoading, setBookingsLoading] = useState(false);
   const [updatingId, setUpdatingId] = useState(null);
 
+  // Live map + route
+  const [driverLoc, setDriverLoc] = useState(null); // { lat, lng }
+  const [routePoints, setRoutePoints] = useState([]);
+  const routeFetchedForRef = useRef(null);
+
+  // The driver's current trip, if any (drives the map route + markers).
+  const activeTrip = driverBookings.find((b) => ["accepted", "ongoing"].includes(b.status)) || null;
+
+  // Earnings summary (computed in-app from the driver's bookings).
+  const completedTrips = driverBookings.filter((b) => b.status === "completed");
+  const ongoingTrips = driverBookings.filter((b) => b.status === "ongoing");
+  const totalEarned = completedTrips.reduce(
+    (sum, b) => sum + (b.final_fare ?? b.estimated_fare ?? 0), 0
+  );
+
   useEffect(() => {
     loadVehicles();
     loadBookings();
   }, []);
+
+  // Grab the driver's current position once so the live map has a starting point.
+  useEffect(() => {
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") return;
+        const pos = await Location.getCurrentPositionAsync({});
+        setDriverLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      } catch {
+        // no location yet — map falls back to Kigali
+      }
+    })();
+  }, []);
+
+  // Draw driver → pickup → destination once per active trip (not on every GPS tick).
+  useEffect(() => {
+    if (!activeTrip) { setRoutePoints([]); routeFetchedForRef.current = null; return; }
+    if (!driverLoc || activeTrip.pickup_lat == null || activeTrip.destination_lat == null) return;
+    if (routeFetchedForRef.current === activeTrip.id) return;
+    routeFetchedForRef.current = activeTrip.id;
+    let alive = true;
+    (async () => {
+      try {
+        const legA = await getDirections(driverLoc.lat, driverLoc.lng, activeTrip.pickup_lat, activeTrip.pickup_lng);
+        const legB = await getDirections(activeTrip.pickup_lat, activeTrip.pickup_lng, activeTrip.destination_lat, activeTrip.destination_lng);
+        if (alive) setRoutePoints([...(legA.points || []), ...(legB.points || [])]);
+      } catch {
+        // leave the route empty; markers still show
+      }
+    })();
+    return () => { alive = false; };
+  }, [activeTrip?.id, driverLoc]);
 
   async function loadVehicles() {
     setLoading(true);
@@ -154,6 +203,7 @@ export default function DriverHomeScreen({ navigation }) {
         return;
       }
       const pos = await Location.getCurrentPositionAsync({});
+      setDriverLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude });
       const updated = await updateVehicleLocation(
         selectedVehicle.id,
         pos.coords.latitude,
@@ -260,6 +310,48 @@ export default function DriverHomeScreen({ navigation }) {
             style={styles.smallBtn}
           />
         </View>
+      )}
+
+      {/* ── Earnings ── */}
+      <Text style={styles.section}>Earnings</Text>
+      <View style={styles.statGrid}>
+        <View style={styles.statCard}>
+          <Text style={styles.statValue}>{totalEarned} RWF</Text>
+          <Text style={styles.statLabel}>Total earned</Text>
+        </View>
+        <View style={styles.statCardSmall}>
+          <Text style={styles.statValue}>{completedTrips.length}</Text>
+          <Text style={styles.statLabel}>Completed</Text>
+        </View>
+        <View style={styles.statCardSmall}>
+          <Text style={styles.statValue}>{ongoingTrips.length}</Text>
+          <Text style={styles.statLabel}>Ongoing</Text>
+        </View>
+      </View>
+
+      {/* ── Live map ── */}
+      <Text style={styles.section}>Live Map</Text>
+      <View style={styles.mapWrap}>
+        <OsmMap
+          style={{ flex: 1 }}
+          center={driverLoc || { lat: -1.9441, lng: 30.0619 }}
+          route={routePoints}
+          follow={routePoints.length === 0 && driverLoc ? driverLoc : undefined}
+          markers={[
+            driverLoc && { lat: driverLoc.lat, lng: driverLoc.lng, color: colors.pinVehicle, title: "You" },
+            activeTrip && activeTrip.pickup_lat != null && {
+              lat: activeTrip.pickup_lat, lng: activeTrip.pickup_lng, color: colors.pinPickup, title: "Pickup",
+            },
+            activeTrip && activeTrip.destination_lat != null && {
+              lat: activeTrip.destination_lat, lng: activeTrip.destination_lng, color: colors.pinDestination, title: "Destination",
+            },
+          ].filter(Boolean)}
+        />
+      </View>
+      {activeTrip && (
+        <Text style={styles.hint}>
+          Route to Booking #{activeTrip.id}: {activeTrip.estimated_distance_km ?? "—"} km · {activeTrip.estimated_time_min ?? "—"} min
+        </Text>
       )}
 
       {/* ── Incoming bookings ── */}
@@ -492,6 +584,21 @@ const styles = StyleSheet.create({
     justifyContent: "space-between", marginTop: spacing.xl, marginBottom: spacing.sm,
   },
   smallBtn: { paddingVertical: 10, paddingHorizontal: 18 },
+  statGrid: { flexDirection: "row", gap: spacing.sm },
+  statCard: {
+    backgroundColor: colors.card, borderRadius: radius.card, padding: spacing.lg,
+    flex: 2, ...cardShadow,
+  },
+  statCardSmall: {
+    backgroundColor: colors.card, borderRadius: radius.card, padding: spacing.lg,
+    flex: 1, alignItems: "center", ...cardShadow,
+  },
+  statValue: { fontFamily: font.familyBold, fontSize: 22, color: colors.primary },
+  statLabel: { fontFamily: font.familyRegular, fontSize: 12, color: colors.textMuted, marginTop: 2 },
+  mapWrap: {
+    height: 220, borderRadius: radius.card, overflow: "hidden",
+    marginBottom: spacing.sm, ...cardShadow,
+  },
   typeRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md },
   typePill: {
     flex: 1, borderRadius: radius.button, paddingVertical: 10,

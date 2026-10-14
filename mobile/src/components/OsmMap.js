@@ -6,12 +6,14 @@ import { WebView } from "react-native-webview";
 // crashes natively without an API key. We only ever used OSM tiles anyway.
 //
 // Props:
-//   center   {lat, lng}                 initial center
-//   markers  [{ lat, lng, color, title }]
-//   follow   {lat, lng}                 pan to this point on each update (live tracking)
-//   tappable boolean                    emit onPress when the user taps the map
-//   onPress  (lat, lng) => void
-//   style    WebView style
+//   center        {lat, lng}                       initial center
+//   markers       [{ id?, lat, lng, color, title }]
+//   route         [[lat,lng], ...]                 optional blue polyline
+//   follow        {lat, lng}                        pan here on update (ignored when a route is shown)
+//   tappable      boolean                           emit onPress when the user taps the map
+//   onPress       (lat, lng) => void
+//   onMarkerPress (id) => void                      tapping a marker with an id
+//   style         WebView style
 
 const HTML = `<!DOCTYPE html>
 <html>
@@ -28,7 +30,7 @@ const HTML = `<!DOCTYPE html>
 <body>
 <div id="map"></div>
 <script>
-  var map, markerLayer, didFit = false;
+  var map, markerLayer, routeLine, didFit = false, lastFitKey = '';
   var KIGALI = { lat: -1.9441, lng: 30.0619 };
 
   function icon(color){
@@ -52,24 +54,51 @@ const HTML = `<!DOCTYPE html>
     post({ type: 'ready' });
   }
 
+  function routeKey(route){
+    if (!route || !route.length) return '';
+    return route.length + ':' + route[0].join(',') + ':' + route[route.length - 1].join(',');
+  }
+
   window.__render = function(payload){
     try {
       var data = (typeof payload === 'string') ? JSON.parse(payload) : payload;
       if (!map) init(data.center);
+
       markerLayer.clearLayers();
       var pts = [];
       (data.markers || []).forEach(function(m){
         if (!num(m.lat) || !num(m.lng)) return;
-        L.marker([m.lat, m.lng], { icon: icon(m.color) }).addTo(markerLayer).bindPopup(m.title || '');
+        var mk = L.marker([m.lat, m.lng], { icon: icon(m.color) }).addTo(markerLayer).bindPopup(m.title || '');
+        if (m.id !== undefined && m.id !== null) {
+          mk.on('click', function(){ post({ type: 'marker', id: m.id }); });
+        }
         pts.push([m.lat, m.lng]);
       });
-      if (!didFit && pts.length > 0) {
-        didFit = true;
-        if (pts.length === 1) map.setView(pts[0], 14);
-        else map.fitBounds(pts, { padding: [40, 40] });
+
+      // Route polyline
+      if (routeLine) { routeLine.remove(); routeLine = null; }
+      var route = (data.route && data.route.length > 1) ? data.route : null;
+      if (route) {
+        routeLine = L.polyline(route, { color: '#1E6FFF', weight: 5, opacity: 0.85 }).addTo(map);
       }
-      var f = data.follow;
-      if (f && num(f.lat) && num(f.lng)) map.panTo([f.lat, f.lng]);
+
+      if (route) {
+        // Fit to the whole line + markers whenever the route changes.
+        var key = routeKey(route) + '|' + pts.length;
+        if (key !== lastFitKey) {
+          lastFitKey = key;
+          var all = route.concat(pts);
+          map.fitBounds(all, { padding: [40, 40] });
+        }
+      } else {
+        if (!didFit && pts.length > 0) {
+          didFit = true;
+          if (pts.length === 1) map.setView(pts[0], 14);
+          else map.fitBounds(pts, { padding: [40, 40] });
+        }
+        var f = data.follow;
+        if (f && num(f.lat) && num(f.lng)) map.panTo([f.lat, f.lng]);
+      }
     } catch (err) {
       post({ type: 'error', message: String(err) });
     }
@@ -78,10 +107,12 @@ const HTML = `<!DOCTYPE html>
 </body>
 </html>`;
 
-export default function OsmMap({ center, markers = [], follow, tappable = false, onPress, style }) {
+export default function OsmMap({
+  center, markers = [], route, follow, tappable = false, onPress, onMarkerPress, style,
+}) {
   const ref = useRef(null);
   const loadedRef = useRef(false);
-  const payload = { center, markers, follow };
+  const payload = { center, markers, route, follow };
   const payloadStr = JSON.stringify(payload);
 
   function push() {
@@ -106,6 +137,7 @@ export default function OsmMap({ center, markers = [], follow, tappable = false,
         try {
           const data = JSON.parse(e.nativeEvent.data);
           if (data.type === "press" && tappable && onPress) onPress(data.lat, data.lng);
+          else if (data.type === "marker" && onMarkerPress) onMarkerPress(data.id);
         } catch {
           // ignore non-JSON messages
         }

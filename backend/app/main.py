@@ -5,6 +5,7 @@ from app.database import Base, engine
 from app import models  # noqa: F401  (imports all models so tables are created)
 from app.routers import (
     auth, vehicles, subscriptions, search, fare, bookings, ratings, tracking, admin, geocode,
+    directions,
 )
 
 # Create all tables on startup (fine for development).
@@ -33,6 +34,7 @@ app.include_router(ratings.router)
 app.include_router(tracking.router)
 app.include_router(admin.router)
 app.include_router(geocode.router)
+app.include_router(directions.router)
 
 
 @app.get("/")

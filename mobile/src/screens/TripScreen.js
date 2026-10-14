@@ -5,7 +5,7 @@ import {
 } from "react-native";
 import OsmMap from "../components/OsmMap";
 import { listenToDriver } from "../api/tracking";
-import { getMyBookings, submitRating } from "../api/client";
+import { getMyBookings, submitRating, getDirections } from "../api/client";
 import { colors, radius, font } from "../theme";
 
 const DONE_STATUSES = ["completed", "cancelled"];
@@ -23,6 +23,10 @@ export default function TripScreen({ route, navigation }) {
   );
   const [liveStatus, setLiveStatus] = useState(booking?.status);
   const [wsStatus, setWsStatus] = useState("connecting"); // 'connecting' | 'live'
+
+  // Route line (pickup → destination) + its distance/ETA from /directions.
+  const [routePoints, setRoutePoints] = useState([]);
+  const [dirInfo, setDirInfo] = useState(null);
 
   // Rating prompt (shown once the trip completes)
   const [showRating, setShowRating] = useState(false);
@@ -45,6 +49,21 @@ export default function TripScreen({ route, navigation }) {
       (s) => setWsStatus(s),
     );
     return stop;
+  }, [booking?.id]);
+
+  // ── Fetch the pickup → destination route once (for the map line + ETA) ────
+  useEffect(() => {
+    if (!isNum(booking?.pickup_lat) || !isNum(booking?.pickup_lng)
+      || !isNum(booking?.destination_lat) || !isNum(booking?.destination_lng)) return;
+    let alive = true;
+    getDirections(booking.pickup_lat, booking.pickup_lng, booking.destination_lat, booking.destination_lng)
+      .then((d) => {
+        if (!alive) return;
+        setRoutePoints(d.points || []);
+        setDirInfo({ distance_km: d.distance_km, duration_min: d.duration_min });
+      })
+      .catch(() => {});
+    return () => { alive = false; };
   }, [booking?.id]);
 
   // ── Status polling — every 5 s, stop when trip is done ───────────────────
@@ -170,8 +189,9 @@ export default function TripScreen({ route, navigation }) {
              : isNum(booking?.pickup_lng)         ? booking.pickup_lng
              : KIGALI.longitude,
         }}
+        route={routePoints}
         follow={
-          isNum(driverLocation?.latitude) && isNum(driverLocation?.longitude)
+          routePoints.length === 0 && isNum(driverLocation?.latitude) && isNum(driverLocation?.longitude)
             ? { lat: driverLocation.latitude, lng: driverLocation.longitude }
             : undefined
         }
@@ -194,6 +214,11 @@ export default function TripScreen({ route, navigation }) {
         <Text style={styles.footerText}>
           {taxi.plate_number} · {taxi.driver_name}
         </Text>
+        {dirInfo && (
+          <Text style={styles.routeInfo}>
+            Route: {dirInfo.distance_km} km · ETA {Math.round(dirInfo.duration_min)} min
+          </Text>
+        )}
         <Text style={styles.fare}>Est. fare: {booking.estimated_fare} RWF</Text>
       </View>
 
@@ -279,6 +304,7 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   footerText: { fontFamily: font.familyMedium, fontSize: 16, color: colors.text },
+  routeInfo: { fontFamily: font.familyRegular, color: colors.textMuted, fontSize: 13, marginTop: 2 },
   fare: { fontFamily: font.familyBold, color: colors.primary, marginTop: 4, fontSize: 16 },
 
   modalBackdrop: {

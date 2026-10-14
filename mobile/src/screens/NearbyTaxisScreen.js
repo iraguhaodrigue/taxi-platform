@@ -5,6 +5,7 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import * as Location from "expo-location";
 import PillButton from "../components/PillButton";
+import OsmMap from "../components/OsmMap";
 import { getNearbyTaxis, getMyBookings } from "../api/client";
 import { colors, radius, spacing, font, cardShadow } from "../theme";
 
@@ -25,6 +26,7 @@ export default function NearbyTaxisScreen({ navigation }) {
   const [searching, setSearching] = useState(false);
   const [selectedType, setSelectedType] = useState(null);
   const [activeBooking, setActiveBooking] = useState(null);
+  const [selectedTaxiId, setSelectedTaxiId] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -148,6 +150,26 @@ export default function NearbyTaxisScreen({ navigation }) {
             </TouchableOpacity>
           )}
 
+          {/* Map of nearby taxis */}
+          {userLocation && (
+            <View style={styles.mapWrap}>
+              <OsmMap
+                style={{ flex: 1 }}
+                center={{ lat: userLocation.lat, lng: userLocation.lng }}
+                onMarkerPress={(id) => setSelectedTaxiId(id)}
+                markers={[
+                  { lat: userLocation.lat, lng: userLocation.lng, color: colors.primary, title: "You" },
+                  ...taxis
+                    .filter((t) => t.lat != null && t.lng != null)
+                    .map((t) => ({
+                      id: t.id, lat: t.lat, lng: t.lng,
+                      color: colors.pinVehicle, title: t.plate_number,
+                    })),
+                ]}
+              />
+            </View>
+          )}
+
           <Text style={styles.heading}>Best deals near you</Text>
 
           {/* Transport type picker */}
@@ -192,7 +214,7 @@ export default function NearbyTaxisScreen({ navigation }) {
         ) : null
       }
       renderItem={({ item }) => (
-        <View style={styles.card}>
+        <View style={[styles.card, selectedTaxiId === item.id && styles.cardSelected]}>
           <View style={styles.cardTop}>
             <Text style={styles.plate}>{item.plate_number}</Text>
             <View style={styles.rating}>
@@ -219,6 +241,11 @@ export default function NearbyTaxisScreen({ navigation }) {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.screen },
   list: { padding: spacing.lg, flexGrow: 1 },
+  mapWrap: {
+    height: 200, borderRadius: radius.card, overflow: "hidden",
+    marginBottom: spacing.lg, ...cardShadow,
+  },
+  cardSelected: { borderWidth: 2, borderColor: colors.primary },
   centerScreen: {
     flex: 1, alignItems: "center", justifyContent: "center",
     backgroundColor: colors.screen, paddingHorizontal: spacing.xl,
