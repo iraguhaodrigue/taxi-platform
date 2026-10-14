@@ -43,6 +43,13 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Single source of truth for role → home route (used by login, register, startup).
+export function routeForRole(role) {
+  if (role === "admin") return "AdminHome";
+  if (role === "driver") return "DriverHome";
+  return "Main";
+}
+
 // ---- API calls used by the screens ----
 export async function login(phone, password) {
   // The backend expects form fields "username" and "password".
@@ -156,6 +163,34 @@ export async function submitRating(bookingId, stars, comment) {
 
 export async function getVehicleRatings(vehicleId) {
   const res = await api.get(`/ratings/vehicle/${vehicleId}`);
+  return res.data;
+}
+
+// ---- Admin (require an admin token; the interceptor attaches it) ----
+export async function getAdminSummary() {
+  const res = await api.get("/admin/reports/summary");
+  return res.data;
+}
+
+export async function getAdminUsers() {
+  const res = await api.get("/admin/users");
+  return res.data;
+}
+
+export async function getAdminVehicles() {
+  const res = await api.get("/admin/vehicles");
+  return res.data;
+}
+
+export async function getAdminBookings() {
+  const res = await api.get("/admin/bookings");
+  return res.data;
+}
+
+export async function updatePricing(baseFare, ratePerKm, ratePerMin) {
+  const res = await api.put("/admin/pricing", null, {
+    params: { base_fare: baseFare, rate_per_km: ratePerKm, rate_per_min: ratePerMin },
+  });
   return res.data;
 }
 

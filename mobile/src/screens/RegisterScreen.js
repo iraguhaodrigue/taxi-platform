@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity } from "react-native";
 import PillButton from "../components/PillButton";
-import { register } from "../api/client";
+import { register, routeForRole } from "../api/client";
 import { colors, radius, spacing, font, cardShadow } from "../theme";
 
 const ROLES = [
@@ -24,12 +24,8 @@ export default function RegisterScreen({ navigation }) {
     setLoading(true);
     try {
       await register({ full_name: fullName, phone, password, role });
-      // register() logs in; route to the right home.
-      if (role === "driver") {
-        navigation.replace("DriverHome");
-      } else {
-        navigation.replace("Main");
-      }
+      // register() logs in; route to the right home (passenger or driver only).
+      navigation.replace(routeForRole(role));
     } catch (e) {
       if (e.response) {
         Alert.alert("Registration failed", `Status: ${e.response.status} - ${JSON.stringify(e.response.data)}`);

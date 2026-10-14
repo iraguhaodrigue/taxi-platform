@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, StyleSheet, Alert, TouchableOpacity } from "react-native";
 import PillButton from "../components/PillButton";
-import { login, getMe } from "../api/client";
+import { login, getMe, routeForRole } from "../api/client";
 import { colors, radius, spacing, font, cardShadow } from "../theme";
 
 export default function LoginScreen({ navigation }) {
@@ -14,11 +14,7 @@ export default function LoginScreen({ navigation }) {
     try {
       await login(phone, password);
       const me = await getMe();
-      if (me.role === "driver") {
-        navigation.replace("DriverHome");
-      } else {
-        navigation.replace("Main");
-      }
+      navigation.replace(routeForRole(me.role));
     } catch (e) {
       if (e.response) {
         Alert.alert(

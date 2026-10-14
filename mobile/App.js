@@ -22,7 +22,8 @@ import TripScreen from "./src/screens/TripScreen";
 import DriverHomeScreen from "./src/screens/DriverHomeScreen";
 import HistoryScreen from "./src/screens/HistoryScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
-import { logout, loadToken, getMe } from "./src/api/client";
+import AdminDashboard from "./src/screens/AdminDashboard";
+import { logout, loadToken, getMe, routeForRole } from "./src/api/client";
 import { colors, font } from "./src/theme";
 
 const RootStack = createNativeStackNavigator();
@@ -194,7 +195,7 @@ export default function App() {
         const t = await loadToken();
         if (t) {
           const me = await getMe();
-          setInitialRoute(me.role === "driver" ? "DriverHome" : "Main");
+          setInitialRoute(routeForRole(me.role));
           return;
         }
       } catch {
@@ -234,6 +235,7 @@ export default function App() {
             })}
           />
           <RootStack.Screen name="History" component={HistoryScreen} options={{ title: "Trip History" }} />
+          <RootStack.Screen name="AdminHome" component={AdminDashboard} options={{ headerShown: false }} />
         </RootStack.Navigator>
       </NavigationContainer>
     </ErrorBoundary>
