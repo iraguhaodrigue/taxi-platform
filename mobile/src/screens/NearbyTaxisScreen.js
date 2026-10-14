@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
     ...cardShadow,
   },
   activeText: { fontFamily: font.familyMedium, color: colors.white, fontSize: 15 },
-  activeAction: { fontFamily: font.family, color: "#8ec5ff", fontSize: 15 },
+  activeAction: { fontFamily: font.family, color: colors.headerLink, fontSize: 15 },
 
   typeRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md },
   typePill: {

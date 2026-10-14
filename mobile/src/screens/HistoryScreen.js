@@ -14,11 +14,11 @@ const STATUS_LABEL = {
   cancelled: "Cancelled",
 };
 const STATUS_COLOR = {
-  requested: { color: "#b45309", backgroundColor: "#fef3c7" },
-  accepted: { color: "#1d4ed8", backgroundColor: "#dbeafe" },
-  ongoing: { color: "#166534", backgroundColor: "#dcfce7" },
-  completed: { color: "#166534", backgroundColor: "#dcfce7" },
-  cancelled: { color: "#991b1b", backgroundColor: "#fee2e2" },
+  requested: { color: colors.warning, backgroundColor: colors.tintWarning },
+  accepted: { color: colors.primary, backgroundColor: colors.tintPrimary },
+  ongoing: { color: colors.success, backgroundColor: colors.tintSuccess },
+  completed: { color: colors.success, backgroundColor: colors.tintSuccess },
+  cancelled: { color: colors.danger, backgroundColor: colors.tintDanger },
 };
 
 function formatDate(iso) {

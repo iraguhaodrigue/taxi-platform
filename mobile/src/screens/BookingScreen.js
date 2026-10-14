@@ -211,21 +211,21 @@ export default function BookingScreen({ route, navigation }) {
       cancelled: "Booking cancelled",
     };
     const STATUS_COLOR = {
-      requested: "#b45309",
-      accepted: "#1d4ed8",
-      ongoing: "#166534",
-      completed: "#555",
-      cancelled: "#991b1b",
+      requested: colors.warning,
+      accepted: colors.primary,
+      ongoing: colors.success,
+      completed: colors.textMuted,
+      cancelled: colors.danger,
     };
     return (
       <View style={styles.container}>
         <Text style={styles.title}>Booking Confirmed!</Text>
-        <View style={[styles.statusBanner, { borderColor: STATUS_COLOR[currentStatus] || "#ccc" }]}>
-          <Text style={[styles.statusText, { color: STATUS_COLOR[currentStatus] || "#555" }]}>
+        <View style={[styles.statusBanner, { borderColor: STATUS_COLOR[currentStatus] || colors.border }]}>
+          <Text style={[styles.statusText, { color: STATUS_COLOR[currentStatus] || colors.textMuted }]}>
             {STATUS_LABEL[currentStatus] || currentStatus}
           </Text>
           {!["completed", "cancelled"].includes(currentStatus) && (
-            <ActivityIndicator size="small" style={{ marginTop: 4 }} />
+            <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: 4 }} />
           )}
         </View>
         <View style={styles.card}>
@@ -263,13 +263,13 @@ export default function BookingScreen({ route, navigation }) {
 
         {/* Pickup row */}
         <View style={styles.locationRow}>
-          <View style={[styles.dot, { backgroundColor: "#f90" }]} />
+          <View style={[styles.dot, { backgroundColor: colors.pinPickup }]} />
           <Text style={styles.locationLabel}>Your location (GPS)</Text>
         </View>
 
         {/* Destination search row */}
         <View style={styles.locationRow}>
-          <View style={[styles.dot, { backgroundColor: "#c00" }]} />
+          <View style={[styles.dot, { backgroundColor: colors.pinDestination }]} />
           <TextInput
             style={styles.searchInput}
             placeholder="Where to? Search address…"
@@ -314,9 +314,9 @@ export default function BookingScreen({ route, navigation }) {
             tappable
             onPress={handleMapTap}
             markers={[
-              isCoord(pickup) && { lat: pickup.lat, lng: pickup.lng, color: "#f90", title: "Pickup" },
+              isCoord(pickup) && { lat: pickup.lat, lng: pickup.lng, color: colors.pinPickup, title: "Pickup" },
               isCoord(destination) && {
-                lat: destination.lat, lng: destination.lng, color: "#c00",
+                lat: destination.lat, lng: destination.lng, color: colors.pinDestination,
                 title: (destination.name || "").split(",")[0],
               },
             ].filter(Boolean)}
@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
   suggestionText: { fontFamily: font.familyRegular, fontSize: 14, color: colors.text },
 
   hint: { fontFamily: font.familyRegular, fontSize: 13, color: colors.textMuted, marginBottom: 6 },
-  map: { height: 220, borderRadius: radius.card, marginBottom: 14, overflow: "hidden", backgroundColor: "#e8e8e8" },
+  map: { height: 220, borderRadius: radius.card, marginBottom: 14, overflow: "hidden", backgroundColor: colors.border },
 
   buttonRow: { marginTop: spacing.sm, marginBottom: spacing.xs },
 

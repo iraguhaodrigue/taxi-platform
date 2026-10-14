@@ -13,7 +13,21 @@ export const colors = {
   star: "#F5A623",         // gold rating star
   white: "#FFFFFF",
   success: "#16A34A",
+  warning: "#D97706",
   danger: "#DC2626",
+
+  // Soft background tints for chips / status badges.
+  tintPrimary: "#EAF1FF",
+  tintSuccess: "#DCFCE7",
+  tintWarning: "#FEF3C7",
+  tintDanger: "#FEE2E2",
+  tintMuted: "#F3F4F6",
+
+  // Map marker pins (kept distinct by convention) and an on-navy accent.
+  pinPickup: "#F59E0B",       // orange
+  pinDestination: "#DC2626",  // red
+  pinVehicle: "#16A34A",      // green
+  headerLink: "#8EC5FF",      // light-blue link on the navy banner
 };
 
 export const radius = {

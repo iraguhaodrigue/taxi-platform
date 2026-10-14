@@ -113,13 +113,13 @@ export default function TripScreen({ route, navigation }) {
     cancelled: "Booking cancelled",
   };
   const STATUS_COLOR = {
-    requested: "#b45309",
-    accepted:  "#1d4ed8",
-    ongoing:   "#166534",
-    completed: "#555",
-    cancelled: "#991b1b",
+    requested: colors.warning,
+    accepted:  colors.primary,
+    ongoing:   colors.success,
+    completed: colors.textMuted,
+    cancelled: colors.danger,
   };
-  const statusColor = STATUS_COLOR[liveStatus] || "#555";
+  const statusColor = STATUS_COLOR[liveStatus] || colors.textMuted;
 
   // Missing navigation params — show a safe fallback instead of crashing.
   if (!booking || !taxi) {
@@ -178,13 +178,13 @@ export default function TripScreen({ route, navigation }) {
         markers={[
           isNum(driverLocation?.latitude) && isNum(driverLocation?.longitude) && {
             lat: driverLocation.latitude, lng: driverLocation.longitude,
-            color: "#2a7", title: taxi.plate_number,
+            color: colors.pinVehicle, title: taxi.plate_number,
           },
           isNum(booking?.pickup_lat) && isNum(booking?.pickup_lng) && {
-            lat: booking.pickup_lat, lng: booking.pickup_lng, color: "#f90", title: "Pickup",
+            lat: booking.pickup_lat, lng: booking.pickup_lng, color: colors.pinPickup, title: "Pickup",
           },
           isNum(booking?.destination_lat) && isNum(booking?.destination_lng) && {
-            lat: booking.destination_lat, lng: booking.destination_lng, color: "#c00", title: "Destination",
+            lat: booking.destination_lat, lng: booking.destination_lng, color: colors.pinDestination, title: "Destination",
           },
         ].filter(Boolean)}
       />
@@ -266,8 +266,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8, paddingVertical: 2,
     borderRadius: 12,
   },
-  wsLive:       { backgroundColor: "#dcfce7" },
-  wsConnecting: { backgroundColor: "#fef3c7" },
+  wsLive:       { backgroundColor: colors.tintSuccess },
+  wsConnecting: { backgroundColor: colors.tintWarning },
   wsText: { fontFamily: font.familyMedium, fontSize: 11 },
 
   map: { flex: 1 },

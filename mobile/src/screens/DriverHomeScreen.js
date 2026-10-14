@@ -367,8 +367,11 @@ export default function DriverHomeScreen({ navigation }) {
           <Text style={styles.section}>My Vehicles</Text>
           {vehicles.map((v) => (
             <View key={v.id} style={styles.card}>
-              <Text style={styles.plate}>{v.plate_number}</Text>
-              <Text style={{ fontFamily: font.familyMedium, color: v.is_listed ? colors.success : colors.textMuted }}>
+              <View style={styles.vehHeader}>
+                <Text style={styles.plate}>{v.plate_number}</Text>
+                <Text style={styles.vehTypePill}>{typeLabel(v.vehicle_type)}</Text>
+              </View>
+              <Text style={{ fontFamily: font.familyMedium, marginTop: 4, color: v.is_listed ? colors.success : colors.textMuted }}>
                 {v.is_listed ? "Listed ✓" : "Not listed — buy a subscription"}
               </Text>
             </View>
@@ -442,13 +445,18 @@ export default function DriverHomeScreen({ navigation }) {
 
 function statusStyle(status) {
   const palette = {
-    requested: { color: "#b45309", backgroundColor: "#fef3c7" },
-    accepted: { color: "#1d4ed8", backgroundColor: "#dbeafe" },
-    ongoing: { color: "#166534", backgroundColor: "#dcfce7" },
-    completed: { color: "#555", backgroundColor: "#f3f4f6" },
-    cancelled: { color: "#991b1b", backgroundColor: "#fee2e2" },
+    requested: { color: colors.warning, backgroundColor: colors.tintWarning },
+    accepted: { color: colors.primary, backgroundColor: colors.tintPrimary },
+    ongoing: { color: colors.success, backgroundColor: colors.tintSuccess },
+    completed: { color: colors.textMuted, backgroundColor: colors.tintMuted },
+    cancelled: { color: colors.danger, backgroundColor: colors.tintDanger },
   };
-  return palette[status] || {};
+  return palette[status] || { color: colors.textMuted, backgroundColor: colors.tintMuted };
+}
+
+function typeLabel(key) {
+  const t = VEHICLE_TYPES.find((v) => v.key === key);
+  return t ? t.label : "Taxi";
 }
 
 const styles = StyleSheet.create({
@@ -467,6 +475,12 @@ const styles = StyleSheet.create({
     padding: spacing.lg, marginBottom: spacing.sm, ...cardShadow,
   },
   plate: { fontFamily: font.familyBold, fontSize: 17, color: colors.text },
+  vehHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  vehTypePill: {
+    fontFamily: font.familyMedium, fontSize: 12, color: colors.primary,
+    backgroundColor: colors.tintPrimary, paddingHorizontal: 10, paddingVertical: 3,
+    borderRadius: radius.pill, overflow: "hidden",
+  },
   row: {
     flexDirection: "row", alignItems: "center",
     justifyContent: "space-between",
@@ -505,9 +519,9 @@ const styles = StyleSheet.create({
   bookingDetail: { fontFamily: font.familyRegular, color: colors.textMuted, fontSize: 13, marginBottom: spacing.md },
   bookingActions: { flexDirection: "row", gap: 8 },
   trackingBanner: {
-    backgroundColor: "#dcfce7",
+    backgroundColor: colors.tintSuccess,
     borderWidth: 1,
-    borderColor: "#86efac",
+    borderColor: colors.success,
     borderRadius: radius.card,
     padding: 12,
     marginBottom: spacing.lg,
@@ -515,5 +529,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  trackingText: { fontFamily: font.familyMedium, color: "#166534", fontSize: 14, flex: 1, marginRight: 8 },
+  trackingText: { fontFamily: font.familyMedium, color: colors.success, fontSize: 14, flex: 1, marginRight: 8 },
 });
