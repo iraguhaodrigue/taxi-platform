@@ -22,9 +22,24 @@ class UserOut(BaseModel):
     phone: str
     email: Optional[str] = None
     role: UserRole
+    is_verified: int = 0
 
     class Config:
         from_attributes = True
+
+
+class VerifyEmailRequest(BaseModel):
+    phone: str
+    code: str
+
+
+class ResendCodeRequest(BaseModel):
+    phone: str
+
+
+class ProfileUpdate(BaseModel):
+    full_name: Optional[str] = None
+    email: Optional[EmailStr] = None
 
 
 class Token(BaseModel):

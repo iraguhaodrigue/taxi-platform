@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, ScrollView, TouchableOpacity, Text, Button, ActivityIndicator } from "react-native";
+import { View, ScrollView, Text, Button, ActivityIndicator } from "react-native";
 // Register the background location task before any navigation loads.
 import "./src/api/tracking";
 import { NavigationContainer, getFocusedRouteNameFromRoute } from "@react-navigation/native";
@@ -16,18 +16,21 @@ import {
 
 import LoginScreen from "./src/screens/LoginScreen";
 import RegisterScreen from "./src/screens/RegisterScreen";
+import VerifyEmailScreen from "./src/screens/VerifyEmailScreen";
 import NearbyTaxisScreen from "./src/screens/NearbyTaxisScreen";
 import BookingScreen from "./src/screens/BookingScreen";
 import TripScreen from "./src/screens/TripScreen";
 import DriverHomeScreen from "./src/screens/DriverHomeScreen";
+import DriverEarningsScreen from "./src/screens/DriverEarningsScreen";
 import HistoryScreen from "./src/screens/HistoryScreen";
-import SettingsScreen from "./src/screens/SettingsScreen";
+import ProfileScreen from "./src/screens/ProfileScreen";
 import AdminDashboard from "./src/screens/AdminDashboard";
 import { logout, loadToken, getMe, routeForRole } from "./src/api/client";
 import { colors, font } from "./src/theme";
 
 const RootStack = createNativeStackNavigator();
 const HomeStack = createNativeStackNavigator();
+const DriverTab = createBottomTabNavigator();
 const Tab = createBottomTabNavigator();
 
 // Shared navy header styling for all stack headers.
@@ -102,29 +105,6 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-// History + Logout buttons for the driver dashboard header (navy bar → light text).
-function DriverHeaderButtons({ navigation }) {
-  return (
-    <View style={{ flexDirection: "row", alignItems: "center" }}>
-      <TouchableOpacity
-        onPress={() => navigation.navigate("History")}
-        style={{ paddingHorizontal: 8, paddingVertical: 4 }}
-      >
-        <Text style={{ color: colors.white, fontFamily: font.familyMedium }}>History</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        onPress={() => {
-          logout();
-          navigation.replace("Login");
-        }}
-        style={{ marginRight: 4, paddingHorizontal: 8, paddingVertical: 4 }}
-      >
-        <Text style={{ color: "#ffd0d0", fontFamily: font.familyMedium }}>Logout</Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
-
 // The passenger booking flow (nearby list → booking → live trip), used by Home and Search tabs.
 function BookingFlowStack() {
   return (
@@ -146,7 +126,7 @@ function MainTabs() {
         tabBarLabelStyle: { fontFamily: font.familyMedium, fontSize: 11 },
         tabBarStyle: baseTabBar,
         tabBarIcon: ({ color, size }) => {
-          const icons = { Home: "home", Search: "search", History: "time", Settings: "settings" };
+          const icons = { Home: "home", Search: "search", History: "time", Profile: "person" };
           return <Ionicons name={icons[route.name] || "ellipse"} size={size} color={color} />;
         },
       })}
@@ -162,8 +142,34 @@ function MainTabs() {
         options={({ route }) => ({ tabBarStyle: tabBarForRoute(route) })}
       />
       <Tab.Screen name="History" component={HistoryScreen} />
-      <Tab.Screen name="Settings" component={SettingsScreen} />
+      <Tab.Screen name="Profile" component={ProfileScreen} options={{ headerShown: true, ...navyHeader, title: "Profile" }} />
     </Tab.Navigator>
+  );
+}
+
+// Driver bottom tabs: Home (dashboard + map), Trips (history), Earnings, Profile.
+function DriverTabs() {
+  return (
+    <DriverTab.Navigator
+      screenOptions={({ route }) => ({
+        headerStyle: { backgroundColor: colors.header },
+        headerTintColor: colors.white,
+        headerTitleStyle: { fontFamily: font.family },
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textMuted,
+        tabBarLabelStyle: { fontFamily: font.familyMedium, fontSize: 11 },
+        tabBarStyle: baseTabBar,
+        tabBarIcon: ({ color, size }) => {
+          const icons = { Home: "home", Trips: "list", Earnings: "cash", Profile: "person" };
+          return <Ionicons name={icons[route.name] || "ellipse"} size={size} color={color} />;
+        },
+      })}
+    >
+      <DriverTab.Screen name="Home" component={DriverHomeScreen} options={{ title: "Driver Dashboard" }} />
+      <DriverTab.Screen name="Trips" component={HistoryScreen} options={{ title: "Trip History" }} />
+      <DriverTab.Screen name="Earnings" component={DriverEarningsScreen} options={{ title: "Earnings" }} />
+      <DriverTab.Screen name="Profile" component={ProfileScreen} options={{ title: "Profile" }} />
+    </DriverTab.Navigator>
   );
 }
 
@@ -195,7 +201,7 @@ export default function App() {
         const t = await loadToken();
         if (t) {
           const me = await getMe();
-          setInitialRoute(routeForRole(me.role));
+          setInitialRoute(me.is_verified ? routeForRole(me.role) : "VerifyEmail");
           return;
         }
       } catch {
@@ -225,15 +231,9 @@ export default function App() {
         <RootStack.Navigator initialRouteName={initialRoute} screenOptions={navyHeader}>
           <RootStack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
           <RootStack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />
+          <RootStack.Screen name="VerifyEmail" component={VerifyEmailScreen} options={{ headerShown: false }} />
           <RootStack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
-          <RootStack.Screen
-            name="DriverHome"
-            component={DriverHomeScreen}
-            options={({ navigation }) => ({
-              title: "Driver Dashboard",
-              headerRight: () => <DriverHeaderButtons navigation={navigation} />,
-            })}
-          />
+          <RootStack.Screen name="DriverHome" component={DriverTabs} options={{ headerShown: false }} />
           <RootStack.Screen name="History" component={HistoryScreen} options={{ title: "Trip History" }} />
           <RootStack.Screen name="AdminHome" component={AdminDashboard} options={{ headerShown: false }} />
         </RootStack.Navigator>

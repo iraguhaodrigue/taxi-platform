@@ -4,9 +4,10 @@ import {
   TouchableOpacity, ActivityIndicator, Alert,
 } from "react-native";
 import OsmMap from "../components/OsmMap";
+import PillButton from "../components/PillButton";
 import { listenToDriver } from "../api/tracking";
-import { getMyBookings, submitRating, getDirections } from "../api/client";
-import { colors, radius, font } from "../theme";
+import { getMyBookings, submitRating, getDirections, updateBookingStatus } from "../api/client";
+import { colors, radius, spacing, font } from "../theme";
 
 const DONE_STATUSES = ["completed", "cancelled"];
 const KIGALI = { latitude: -1.9441, longitude: 30.0619 };
@@ -27,6 +28,7 @@ export default function TripScreen({ route, navigation }) {
   // Route line (pickup → destination) + its distance/ETA from /directions.
   const [routePoints, setRoutePoints] = useState([]);
   const [dirInfo, setDirInfo] = useState(null);
+  const [cancelling, setCancelling] = useState(false);
 
   // Rating prompt (shown once the trip completes)
   const [showRating, setShowRating] = useState(false);
@@ -96,6 +98,19 @@ export default function TripScreen({ route, navigation }) {
 
   function goHome() {
     navigation.navigate("NearbyTaxis");
+  }
+
+  async function handleCancel() {
+    if (booking?.id == null) return;
+    setCancelling(true);
+    try {
+      await updateBookingStatus(booking.id, "cancelled");
+      setLiveStatus("cancelled");
+    } catch (e) {
+      Alert.alert("Could not cancel", e?.response?.data?.detail || "Please try again.");
+    } finally {
+      setCancelling(false);
+    }
   }
 
   async function handleSubmitRating() {
@@ -176,6 +191,15 @@ export default function TripScreen({ route, navigation }) {
           </View>
         </View>
         <Text style={styles.bookingId}>Booking #{booking.id}</Text>
+        {liveStatus === "requested" && (
+          <PillButton
+            title="Cancel booking"
+            color={colors.danger}
+            onPress={handleCancel}
+            loading={cancelling}
+            style={{ marginTop: spacing.sm, paddingVertical: 10 }}
+          />
+        )}
       </View>
 
       {/* Map */}

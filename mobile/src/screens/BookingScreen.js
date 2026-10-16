@@ -5,7 +5,7 @@ import {
 } from "react-native";
 import OsmMap from "../components/OsmMap";
 import PillButton from "../components/PillButton";
-import { estimateFare, createBooking, geocodeSearch, getMyBookings } from "../api/client";
+import { estimateFare, createBooking, geocodeSearch, getMyBookings, updateBookingStatus } from "../api/client";
 import { colors, radius, spacing, font, cardShadow } from "../theme";
 
 const KIGALI = { lat: -1.9441, lng: 30.0619 };
@@ -51,6 +51,7 @@ export default function BookingScreen({ route, navigation }) {
   const [booking, setBooking] = useState(null);
   const [confirming, setConfirming] = useState(false);
   const [liveStatus, setLiveStatus] = useState(null);
+  const [cancelling, setCancelling] = useState(false);
 
   // Debounced geocode search
   useEffect(() => {
@@ -200,6 +201,18 @@ export default function BookingScreen({ route, navigation }) {
     );
   }
 
+  async function handleCancel() {
+    setCancelling(true);
+    try {
+      await updateBookingStatus(booking.id, "cancelled");
+      setLiveStatus("cancelled");
+    } catch (e) {
+      Alert.alert("Could not cancel", describeError(e));
+    } finally {
+      setCancelling(false);
+    }
+  }
+
   // ── Booking confirmed screen ──────────────────────────────────────────────
   if (booking) {
     const currentStatus = liveStatus || booking.status;
@@ -242,6 +255,15 @@ export default function BookingScreen({ route, navigation }) {
           title="Track Trip on Map"
           onPress={() => navigation.replace("Trip", { booking, taxi })}
         />
+        {currentStatus === "requested" && (
+          <PillButton
+            title="Cancel booking"
+            color={colors.danger}
+            onPress={handleCancel}
+            loading={cancelling}
+            style={{ marginTop: spacing.md }}
+          />
+        )}
       </View>
     );
   }

@@ -23,6 +23,11 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     role = Column(Enum(UserRole), default=UserRole.passenger, nullable=False)
 
+    # Email verification
+    is_verified = Column(Integer, default=0)  # 1 = verified, 0 = not
+    verification_code = Column(String, nullable=True)
+    code_expires_at = Column(DateTime, nullable=True)
+
     # Driver live location (updated while a trip is active).
     current_lat = Column(Float, nullable=True)
     current_lng = Column(Float, nullable=True)

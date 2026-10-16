@@ -68,10 +68,25 @@ export async function login(phone, password) {
   return res.data;
 }
 
-// Create an account, then log in to obtain a token.
-export async function register({ full_name, phone, password, role }) {
-  await api.post("/auth/register", { full_name, phone, password, role });
-  return login(phone, password);
+// Create an account (unverified). Does NOT log in — the app goes to verify next.
+export async function register({ full_name, phone, email, password, role }) {
+  const res = await api.post("/auth/register", { full_name, phone, email, password, role });
+  return res.data;
+}
+
+export async function verifyEmail(phone, code) {
+  const res = await api.post("/auth/verify-email", { phone, code });
+  return res.data;
+}
+
+export async function resendCode(phone) {
+  const res = await api.post("/auth/resend-code", { phone });
+  return res.data;
+}
+
+export async function updateProfile({ full_name, email }) {
+  const res = await api.patch("/auth/me", { full_name, email });
+  return res.data;
 }
 
 export async function getNearbyTaxis(lat, lng, radiusKm = 5, vehicleType = null) {

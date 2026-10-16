@@ -14,6 +14,13 @@ class Settings(BaseSettings):
     RATE_PER_MIN: float = 50
     OPENROUTESERVICE_API_KEY: str = ""
 
+    # Email / SMTP (all read from .env; empty means email is disabled).
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASS: str = ""
+    SMTP_FROM: str = ""
+
     class Config:
         env_file = ".env"
 

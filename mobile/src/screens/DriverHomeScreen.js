@@ -68,13 +68,6 @@ export default function DriverHomeScreen({ navigation }) {
   // The driver's current trip, if any (drives the map route + markers).
   const activeTrip = driverBookings.find((b) => ["accepted", "ongoing"].includes(b.status)) || null;
 
-  // Earnings summary (computed in-app from the driver's bookings).
-  const completedTrips = driverBookings.filter((b) => b.status === "completed");
-  const ongoingTrips = driverBookings.filter((b) => b.status === "ongoing");
-  const totalEarned = completedTrips.reduce(
-    (sum, b) => sum + (b.final_fare ?? b.estimated_fare ?? 0), 0
-  );
-
   useEffect(() => {
     loadVehicles();
     loadBookings();
@@ -311,23 +304,6 @@ export default function DriverHomeScreen({ navigation }) {
           />
         </View>
       )}
-
-      {/* ── Earnings ── */}
-      <Text style={styles.section}>Earnings</Text>
-      <View style={styles.statGrid}>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{totalEarned} RWF</Text>
-          <Text style={styles.statLabel}>Total earned</Text>
-        </View>
-        <View style={styles.statCardSmall}>
-          <Text style={styles.statValue}>{completedTrips.length}</Text>
-          <Text style={styles.statLabel}>Completed</Text>
-        </View>
-        <View style={styles.statCardSmall}>
-          <Text style={styles.statValue}>{ongoingTrips.length}</Text>
-          <Text style={styles.statLabel}>Ongoing</Text>
-        </View>
-      </View>
 
       {/* ── Live map ── */}
       <Text style={styles.section}>Live Map</Text>
@@ -584,17 +560,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between", marginTop: spacing.xl, marginBottom: spacing.sm,
   },
   smallBtn: { paddingVertical: 10, paddingHorizontal: 18 },
-  statGrid: { flexDirection: "row", gap: spacing.sm },
-  statCard: {
-    backgroundColor: colors.card, borderRadius: radius.card, padding: spacing.lg,
-    flex: 2, ...cardShadow,
-  },
-  statCardSmall: {
-    backgroundColor: colors.card, borderRadius: radius.card, padding: spacing.lg,
-    flex: 1, alignItems: "center", ...cardShadow,
-  },
-  statValue: { fontFamily: font.familyBold, fontSize: 22, color: colors.primary },
-  statLabel: { fontFamily: font.familyRegular, fontSize: 12, color: colors.textMuted, marginTop: 2 },
   mapWrap: {
     height: 220, borderRadius: radius.card, overflow: "hidden",
     marginBottom: spacing.sm, ...cardShadow,

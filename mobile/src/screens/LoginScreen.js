@@ -14,7 +14,11 @@ export default function LoginScreen({ navigation }) {
     try {
       await login(phone, password);
       const me = await getMe();
-      navigation.replace(routeForRole(me.role));
+      if (!me.is_verified) {
+        navigation.replace("VerifyEmail", { phone, password });
+      } else {
+        navigation.replace(routeForRole(me.role));
+      }
     } catch (e) {
       if (e.response) {
         Alert.alert(
